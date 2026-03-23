@@ -1,0 +1,130 @@
+TAG	METHOD	PATH	SUMMARY
+Account	GET	/api/v1/accounts	getAccounts
+Account	POST	/api/v1/accounts	createAccount
+Account	GET	/api/v1/accounts/{id}	getAccountById
+Account	PUT	/api/v1/accounts/{id}	updateAccount
+Account	PATCH	/api/v1/accounts/{id}/reset-password	resetPassword
+Account	PATCH	/api/v1/accounts/{id}/status	updateStatus
+Administrative Class	GET	/api/v1/administrative-classes	Get all administrative classes
+Administrative Class	POST	/api/v1/administrative-classes	Create new administrative class
+Administrative Class	DELETE	/api/v1/administrative-classes/{id}	Soft delete administrative class
+Administrative Class	GET	/api/v1/administrative-classes/{id}	Get administrative class by ID
+Administrative Class	PUT	/api/v1/administrative-classes/{id}	Update administrative class
+Attendance	DELETE	/api/v1/attendances/{id}	Soft delete attendance record
+Attendance	PUT	/api/v1/attendances/{id}	Update attendance record
+Attendance	GET	/api/v1/class-sessions/{sessionId}/attendances	Get attendance list by session
+Attendance	POST	/api/v1/class-sessions/{sessionId}/attendances/batch	Create batch attendance for a session
+Attendance	GET	/api/v1/guardians/{guardianId}/students/{studentId}/attendances	Guardian views attendance of their child
+Attendance	GET	/api/v1/students/{studentId}/attendances	Student views their own attendance
+Classroom	GET	/api/v1/classrooms	Get all classrooms
+Classroom	POST	/api/v1/classrooms	Create new classroom
+Classroom	DELETE	/api/v1/classrooms/{id}	Soft delete classroom
+Classroom	GET	/api/v1/classrooms/{id}	Get classroom by ID
+Classroom	PUT	/api/v1/classrooms/{id}	Update classroom
+Cohort	GET	/api/v1/cohorts	Get all cohorts
+Cohort	POST	/api/v1/cohorts	Create new cohort
+Cohort	DELETE	/api/v1/cohorts/{id}	Soft delete cohort
+Cohort	GET	/api/v1/cohorts/{id}	Get cohort by ID
+Cohort	PUT	/api/v1/cohorts/{id}	Update cohort
+Course	GET	/api/v1/courses	Get all courses
+Course	POST	/api/v1/courses	Create new course
+Course	GET	/api/v1/courses/faculty/{facultyId}	Get all courses by faculty
+Course	DELETE	/api/v1/courses/{id}	Soft delete course
+Course	GET	/api/v1/courses/{id}	Get course by ID
+Course	PUT	/api/v1/courses/{id}	Update course
+Course Section	GET	/api/v1/course-sections	Get all course sections
+Course Section	POST	/api/v1/course-sections	Create new course section
+Course Section	GET	/api/v1/course-sections/course/{courseId}	Get course sections by course
+Course Section	GET	/api/v1/course-sections/semester/{semesterId}	Get course sections by semester
+Course Section	DELETE	/api/v1/course-sections/{id}	Soft delete course section (only DRAFT or CANCELLED)
+Course Section	GET	/api/v1/course-sections/{id}	Get course section by ID
+Course Section	PUT	/api/v1/course-sections/{id}	Update course section
+Course Section	PATCH	/api/v1/course-sections/{id}/status	changeStatus
+Faculty	GET	/api/v1/faculties	Get all faculties
+Faculty	POST	/api/v1/faculties	Create new faculty
+Faculty	DELETE	/api/v1/faculties/{id}	Soft delete faculty
+Faculty	GET	/api/v1/faculties/{id}	Get faculty by ID
+Faculty	PUT	/api/v1/faculties/{id}	Update faculty
+Grade Component	GET	/api/v1/courses/{courseId}/grade-components	Get grade components by course ID
+Grade Component	GET	/api/v1/grade-components	Get all grade components
+Grade Component	POST	/api/v1/grade-components	Create new grade component
+Grade Component	DELETE	/api/v1/grade-components/{id}	Soft delete grade component
+Grade Component	GET	/api/v1/grade-components/{id}	Get grade component by ID
+Grade Component	PUT	/api/v1/grade-components/{id}	Update grade component
+Grade Report	GET	/api/v1/course-sections/{sectionId}/grade-reports	Lecturer gets all grade reports by section
+Grade Report	POST	/api/v1/grade-reports	Create grade report for a registration
+Grade Report	DELETE	/api/v1/grade-reports/{id}	Soft delete grade report
+Grade Report	GET	/api/v1/grade-reports/{id}	Get grade report detail by ID
+Grade Report	PUT	/api/v1/grade-reports/{id}	Update grade report
+Grade Report	GET	/api/v1/students/{studentId}/grade-reports	Student views their grade reports
+Guardian Management	GET	/api/v1/guardians	Lấy danh sách phụ huynh
+Guardian Management	POST	/api/v1/guardians	Thêm mới phụ huynh
+Guardian Management	DELETE	/api/v1/guardians/{id}	Xóa mềm phụ huynh
+Guardian Management	GET	/api/v1/guardians/{id}	Lấy chi tiết 1 phụ huynh
+Guardian Management	PUT	/api/v1/guardians/{id}	Cập nhật hồ sơ phụ huynh
+Lecturer Management	GET	/api/v1/lecturers	Lấy danh sách giảng viên
+Lecturer Management	POST	/api/v1/lecturers	Thêm mới giảng viên
+Lecturer Management	DELETE	/api/v1/lecturers/{id}	Xóa mềm giảng viên
+Lecturer Management	GET	/api/v1/lecturers/{id}	Lấy chi tiết 1 giảng viên
+Lecturer Management	PUT	/api/v1/lecturers/{id}	Cập nhật hồ sơ giảng viên
+Major	GET	/api/v1/majors	Get all majors
+Major	POST	/api/v1/majors	Create new major
+Major	GET	/api/v1/majors/faculty/{facultyId}	Get all majors by faculty
+Major	DELETE	/api/v1/majors/{id}	Soft delete major
+Major	GET	/api/v1/majors/{id}	Get major by ID
+Major	PUT	/api/v1/majors/{id}	Update major
+Recurring Schedule	POST	/api/v1/recurring-schedules	Tạo lịch học mới — tự động sinh ClassSession cho toàn học kỳ
+Recurring Schedule	GET	/api/v1/recurring-schedules/section/{sectionId}	Lấy toàn bộ lịch học của một lớp học phần
+Recurring Schedule	DELETE	/api/v1/recurring-schedules/{id}	Xóa lịch học và toàn bộ ClassSession liên quan (soft delete)
+Recurring Schedule	GET	/api/v1/recurring-schedules/{id}	Lấy chi tiết lịch học theo ID
+Recurring Schedule	PUT	/api/v1/recurring-schedules/{id}	Cập nhật lịch học — xóa & sinh lại ClassSession
+Recurring Schedule	GET	/api/v1/recurring-schedules/{id}/sessions	Lấy danh sách buổi học (ClassSession) được sinh từ lịch này
+Role and permission	GET	/api/v1/roles	getAllRoles
+Role and permission	POST	/api/v1/roles	createRole
+Role and permission	GET	/api/v1/roles/permissions	getAllPermissions
+Role and permission	DELETE	/api/v1/roles/{id}	deleteRole
+Role and permission	GET	/api/v1/roles/{id}	getRoleById
+Role and permission	PUT	/api/v1/roles/{id}	updateRole
+Schedule Management	GET	/api/v1/schedules/lecturers/me	Xem thời khóa biểu giảng dạy (Dành cho Giảng viên)
+Specialization	GET	/api/v1/specializations	Get all specializations
+Specialization	POST	/api/v1/specializations	Create new specialization
+Specialization	GET	/api/v1/specializations/major/{majorId}	Get all specializations by major
+Specialization	DELETE	/api/v1/specializations/{id}	Soft delete specialization
+Specialization	GET	/api/v1/specializations/{id}	Get specialization by ID
+Specialization	PUT	/api/v1/specializations/{id}	Update specialization
+Student Management	GET	/api/v1/students	Lấy danh sách sinh viên
+Student Management	POST	/api/v1/students	Thêm mới sinh viên
+Student Management	DELETE	/api/v1/students/{id}	Xóa mềm sinh viên
+Student Management	GET	/api/v1/students/{id}	Lấy chi tiết 1 sinh viên
+Student Management	PUT	/api/v1/students/{id}	Cập nhật hồ sơ sinh viên
+Student Management	PATCH	/api/v1/students/{id}/status	Cập nhật trạng thái sinh viên
+admin-admission-config-controller	GET	/api/v1/admin/admissions/config/benchmarks	getBenchmarks
+admin-admission-config-controller	POST	/api/v1/admin/admissions/config/benchmarks/bulk	saveBulkBenchmarks
+admin-admission-config-controller	DELETE	/api/v1/admin/admissions/config/benchmarks/{id}	deleteBenchmark
+admin-admission-config-controller	PUT	/api/v1/admin/admissions/config/benchmarks/{id}	updateSingleBenchmark
+admin-admission-config-controller	GET	/api/v1/admin/admissions/config/blocks	getAllBlocks
+admin-admission-config-controller	POST	/api/v1/admin/admissions/config/blocks	createBlock
+admin-admission-config-controller	DELETE	/api/v1/admin/admissions/config/blocks/{id}	deleteBlock
+admin-admission-config-controller	PUT	/api/v1/admin/admissions/config/blocks/{id}	updateBlock
+admin-admission-config-controller	GET	/api/v1/admin/admissions/config/form-options	getOptionsForSetup
+admin-admission-config-controller	GET	/api/v1/admin/admissions/config/periods	getPeriods
+admin-admission-config-controller	POST	/api/v1/admin/admissions/config/periods	createPeriod
+admin-admission-config-controller	DELETE	/api/v1/admin/admissions/config/periods/{id}	deletePeriod
+admin-admission-config-controller	GET	/api/v1/admin/admissions/config/periods/{id}	getPeriodById
+admin-admission-config-controller	PUT	/api/v1/admin/admissions/config/periods/{id}	updatePeriod
+admin-application-controller	GET	/api/v1/admin/admissions/applications	getApplications
+admin-application-controller	POST	/api/v1/admin/admissions/applications/auto-screen/{periodId}	autoScreenApplications
+admin-application-controller	POST	/api/v1/admin/admissions/applications/bulk-review	reviewBulkApplications
+admin-application-controller	POST	/api/v1/admin/admissions/applications/onboard	processOnboarding
+admin-application-controller	GET	/api/v1/admin/admissions/applications/{id}	getApplicationById
+admin-application-controller	PATCH	/api/v1/admin/admissions/applications/{id}/review	reviewSingleApplication
+auth-controller	POST	/api/v1/auth/login	login
+course-registration-controller	POST	/api/v1/course-registrations	register
+profile-controller	GET	/api/v1/profile/me	getMyProfile
+profile-controller	PUT	/api/v1/profile/me	updateMyProfile
+profile-controller	PUT	/api/v1/profile/password	changePassword
+public-admission-controller	GET	/api/v1/public/admissions/active-periods	getActivePeriods
+public-admission-controller	POST	/api/v1/public/admissions/apply	submitApplication
+public-admission-controller	GET	/api/v1/public/admissions/lookup	lookupApplication
+public-admission-controller	GET	/api/v1/public/admissions/periods/{periodId}/majors	getAvailableMajors
+public-admission-controller	GET	/api/v1/public/admissions/periods/{periodId}/majors/{majorId}/blocks	getAvailableBlocks
