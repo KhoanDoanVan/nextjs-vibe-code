@@ -3,6 +3,8 @@ export interface AdminFeatureEndpoint {
   path: string;
 }
 
+export type AccountStatus = "ACTIVE" | "INACTIVE" | "LOCKED";
+
 export type AdminTabKey =
   | "home"
   | "accounts"
@@ -43,10 +45,38 @@ export interface PagedRows<TItem> extends PageMeta {
 export interface AccountListItem {
   id: number;
   username?: string;
-  status?: string;
+  status?: AccountStatus;
   roleName?: string;
+  roleId?: number;
   createdAt?: string;
   avatarUrl?: string;
+}
+
+export interface AccountSearchFilter {
+  keyword?: string;
+  roleId?: number;
+  status?: AccountStatus;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+}
+
+export interface AccountCreatePayload {
+  username: string;
+  password: string;
+  roleId: number;
+  avatarUrl?: string;
+}
+
+export interface AccountUpdatePayload {
+  username: string;
+  roleId: number;
+  avatarUrl?: string;
+}
+
+export interface AccountResetPasswordPayload {
+  newPassword: string;
+  confirmPassword: string;
 }
 
 export interface RoleListItem {

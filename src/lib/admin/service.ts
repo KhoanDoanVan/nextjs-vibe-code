@@ -1,7 +1,12 @@
 import { apiRequest } from "@/lib/api/client";
 import type { ApiResponse } from "@/lib/api/types";
 import type {
+  AccountCreatePayload,
   AccountListItem,
+  AccountResetPasswordPayload,
+  AccountSearchFilter,
+  AccountStatus,
+  AccountUpdatePayload,
   ApplicationListItem,
   BenchmarkListItem,
   BlockListItem,
@@ -111,12 +116,16 @@ const getRequest = async <TData>(
 
 export const getAccounts = async (
   authorization: string,
+  filter: AccountSearchFilter = {},
 ): Promise<PagedRows<AccountListItem>> => {
   const data = await getRequest<unknown>(
     `/api/v1/accounts${buildQueryString({
-      page: 0,
-      size: 20,
-      sortBy: "createdAt",
+      keyword: filter.keyword,
+      roleId: filter.roleId,
+      status: filter.status,
+      page: filter.page ?? 0,
+      size: filter.size ?? 20,
+      sortBy: filter.sortBy ?? "createdAt",
     })}`,
     authorization,
   );
@@ -124,9 +133,47 @@ export const getAccounts = async (
   return toPagedRows<AccountListItem>(data);
 };
 
+export const getAccountById = async (
+  accountId: number,
+  authorization: string,
+): Promise<AccountListItem> => {
+  const data = await getRequest<unknown>(`/api/v1/accounts/${accountId}`, authorization);
+  return data as AccountListItem;
+};
+
+export const createAccount = async (
+  payload: AccountCreatePayload,
+  authorization: string,
+): Promise<AccountListItem> => {
+  const response = await apiRequest<ApiResponse<AccountListItem>>("/api/v1/accounts", {
+    method: "POST",
+    body: payload,
+    accessToken: authorization,
+  });
+
+  return response.data;
+};
+
+export const updateAccount = async (
+  accountId: number,
+  payload: AccountUpdatePayload,
+  authorization: string,
+): Promise<AccountListItem> => {
+  const response = await apiRequest<ApiResponse<AccountListItem>>(
+    `/api/v1/accounts/${accountId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+
+  return response.data;
+};
+
 export const updateAccountStatus = async (
   accountId: number,
-  status: "ACTIVE" | "INACTIVE" | "LOCKED",
+  status: AccountStatus,
   authorization: string,
 ): Promise<void> => {
   await apiRequest<ApiResponse<unknown>>(`/api/v1/accounts/${accountId}/status`, {
@@ -134,6 +181,21 @@ export const updateAccountStatus = async (
     body: { status },
     accessToken: authorization,
   });
+};
+
+export const resetAccountPassword = async (
+  accountId: number,
+  payload: AccountResetPasswordPayload,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/accounts/${accountId}/reset-password`,
+    {
+      method: "PATCH",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
 };
 
 export const getRoles = async (authorization: string): Promise<RoleListItem[]> => {

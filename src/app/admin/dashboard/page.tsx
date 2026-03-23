@@ -1,12 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AuthGuard } from "@/components/auth/auth-guard";
+import { AccountManagementPanel } from "@/components/admin/account-management-panel";
 import { useAuth } from "@/context/auth-context";
-import { normalizeRole } from "@/lib/auth/role";
 import {
-  getAccounts,
   getAdministrativeClasses,
   getAdmissionApplications,
   getAdmissionBenchmarks,
@@ -26,11 +25,9 @@ import {
   getSpecializations,
   getStudentAttendances,
   getStudents,
-  updateAccountStatus,
 } from "@/lib/admin/service";
 import { adminFeatureTabs, adminTopHeaderTabs } from "@/lib/admin/tabs";
 import type {
-  AccountListItem,
   AdminFeatureTab,
   AdminTabKey,
   ApplicationListItem,
@@ -122,13 +119,12 @@ const sectionTitleClass =
   "flex items-center justify-between border-b border-[#c5dced] px-4 py-2 text-[18px] font-semibold text-[#1a4f75]";
 
 export default function AdminDashboardPage() {
-  const { session, logout, registerAccount } = useAuth();
+  const { session, logout } = useAuth();
 
   const [activeTabKey, setActiveTabKey] = useState<AdminTabKey>("home");
   const [tabError, setTabError] = useState("");
   const [tabMessage, setTabMessage] = useState("");
   const [isWorking, setIsWorking] = useState(false);
-  const [accounts, setAccounts] = useState<PagedRows<AccountListItem>>({ rows: [] });
   const [roles, setRoles] = useState<RoleListItem[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [students, setStudents] = useState<PagedRows<DynamicRow>>({ rows: [] });
@@ -151,13 +147,6 @@ export default function AdminDashboardPage() {
   const [attendanceRows, setAttendanceRows] = useState<DynamicRow[]>([]);
   const [gradeSectionIdInput, setGradeSectionIdInput] = useState("");
   const [attendanceStudentIdInput, setAttendanceStudentIdInput] = useState("");
-  const [isCreateStudentModalOpen, setIsCreateStudentModalOpen] = useState(false);
-  const [studentAccountForm, setStudentAccountForm] = useState({
-    username: "",
-    password: "",
-    confirmPassword: "",
-    avatarUrl: "",
-  });
 
   const activeTab = useMemo(
     () =>
@@ -271,94 +260,6 @@ export default function AdminDashboardPage() {
     return parsed;
   };
 
-  const resolveStudentRoleId = async (authorization: string): Promise<number> => {
-    const cachedRole = roles.find(
-      (role) => normalizeRole(role.roleName) === "STUDENT",
-    );
-    if (cachedRole?.id) {
-      return cachedRole.id;
-    }
-
-    const roleRows = await getRoles(authorization);
-    setRoles(roleRows);
-    const studentRole = roleRows.find(
-      (role) => normalizeRole(role.roleName) === "STUDENT",
-    );
-
-    if (!studentRole?.id) {
-      throw new Error(
-        "Khong tim thay role STUDENT. Vui long kiem tra danh sach role tren backend.",
-      );
-    }
-
-    return studentRole.id;
-  };
-
-  const handleCreateStudentAccount = async (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-    setTabError("");
-
-    const username = studentAccountForm.username.trim();
-    const password = studentAccountForm.password;
-    const confirmPassword = studentAccountForm.confirmPassword;
-    const avatarUrl = studentAccountForm.avatarUrl.trim();
-
-    if (!username || !password || !confirmPassword) {
-      setTabError("Vui long nhap day du username, password va xac nhan.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setTabError("Password toi thieu 6 ky tu.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setTabError("Password va xac nhan password khong khop.");
-      return;
-    }
-
-    const authorization = requireAuthorization();
-    if (!authorization) {
-      return;
-    }
-
-    await runAction(async () => {
-      const studentRoleId = await resolveStudentRoleId(authorization);
-      const createdAccount = await registerAccount({
-        username,
-        password,
-        roleId: studentRoleId,
-        avatarUrl: avatarUrl || undefined,
-      });
-
-      let activated = true;
-      try {
-        await updateAccountStatus(createdAccount.id, "ACTIVE", authorization);
-      } catch {
-        activated = false;
-      }
-
-      setStudentAccountForm({
-        username: "",
-        password: "",
-        confirmPassword: "",
-        avatarUrl: "",
-      });
-
-      const accountRows = await getAccounts(authorization);
-      setAccounts(accountRows);
-      setTabMessage(
-        activated
-          ? `Tao tai khoan STUDENT thanh cong: ${createdAccount.username} (ID ${createdAccount.id}), trang thai ACTIVE.`
-          : `Da tao tai khoan STUDENT ${createdAccount.username} (ID ${createdAccount.id}) nhung chua kich hoat ACTIVE.`,
-      );
-      setIsCreateStudentModalOpen(false);
-    });
-  };
-
   const loadTabData = async (tabKey: AdminTabKey) => {
     const authorization = requireAuthorization();
     if (!authorization) {
@@ -368,9 +269,7 @@ export default function AdminDashboardPage() {
     await runAction(async () => {
       switch (tabKey) {
         case "accounts": {
-          const data = await getAccounts(authorization);
-          setAccounts(data);
-          setTabMessage(`Da tai ${data.rows.length} tai khoan.`);
+          setTabMessage("Su dung module Quan ly tai khoan de thao tac CRUD.");
           break;
         }
         case "roles": {
@@ -739,194 +638,7 @@ export default function AdminDashboardPage() {
             ) : null}
 
             {activeTab.key === "accounts" ? (
-              <section className={contentCardClass}>
-                <div className={sectionTitleClass}>
-                  <h2>Danh sach tai khoan</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTabError("");
-                        setIsCreateStudentModalOpen(true);
-                      }}
-                      className="rounded-[4px] bg-[#0d6ea6] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#085d90]"
-                    >
-                      Tao tai khoan STUDENT
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void loadTabData("accounts");
-                      }}
-                      disabled={isWorking}
-                      className="rounded-[4px] border border-[#9ec3dd] bg-white px-3 py-1.5 text-sm font-semibold text-[#165a83] transition hover:bg-[#edf6fd] disabled:opacity-60"
-                    >
-                      Lam moi
-                    </button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto px-4 py-4">
-                  <table className="min-w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[#cfdfec] text-[#305970]">
-                        <th className="px-2 py-2">ID</th>
-                        <th className="px-2 py-2">Username</th>
-                        <th className="px-2 py-2">Role</th>
-                        <th className="px-2 py-2">Status</th>
-                        <th className="px-2 py-2">Created at</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accounts.rows.map((item) => (
-                        <tr key={item.id} className="border-b border-[#e0ebf4] text-[#3f6178]">
-                          <td className="px-2 py-2">{item.id}</td>
-                          <td className="px-2 py-2">{item.username || "-"}</td>
-                          <td className="px-2 py-2">{item.roleName || "-"}</td>
-                          <td className="px-2 py-2">{item.status || "-"}</td>
-                          <td className="px-2 py-2">{formatDateTime(item.createdAt)}</td>
-                        </tr>
-                      ))}
-                      {accounts.rows.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-2 py-4 text-center text-[#577086]">
-                            Chua co du lieu tai khoan.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-
-                {isCreateStudentModalOpen ? (
-                  <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-[#08273f]/55 px-3 py-6 backdrop-blur-[1px]"
-                    onClick={() => {
-                      if (!isWorking) {
-                        setIsCreateStudentModalOpen(false);
-                      }
-                    }}
-                  >
-                    <div
-                      className="w-full max-w-[620px] rounded-[14px] border border-[#8db7d5] bg-white shadow-[0_18px_60px_rgba(7,35,62,0.36)]"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                      }}
-                    >
-                      <div className="flex items-center justify-between border-b border-[#d2e4f1] px-5 py-3">
-                        <h3 className="text-[20px] font-semibold text-[#154f75]">
-                          Tao Tai Khoan Sinh Vien
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!isWorking) {
-                              setIsCreateStudentModalOpen(false);
-                            }
-                          }}
-                          className="rounded-full border border-[#bdd5e7] px-2 py-0.5 text-xl leading-none text-[#346180] transition hover:bg-[#edf6fd]"
-                          disabled={isWorking}
-                          aria-label="Dong popup"
-                        >
-                          ×
-                        </button>
-                      </div>
-
-                      <form
-                        className="grid gap-3 px-5 py-4 md:grid-cols-2"
-                        onSubmit={handleCreateStudentAccount}
-                      >
-                        <label className="space-y-1 md:col-span-2">
-                          <span className="text-sm font-semibold text-[#2c5877]">Username</span>
-                          <input
-                            className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] placeholder:text-[#5f6b76] outline-none focus:border-[#6aa8cf]"
-                            placeholder="Nhap username sinh vien"
-                            value={studentAccountForm.username}
-                            onChange={(event) =>
-                              setStudentAccountForm((prev) => ({
-                                ...prev,
-                                username: event.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-
-                        <label className="space-y-1">
-                          <span className="text-sm font-semibold text-[#2c5877]">Password</span>
-                          <input
-                            type="password"
-                            className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] placeholder:text-[#5f6b76] outline-none focus:border-[#6aa8cf]"
-                            placeholder="Toi thieu 6 ky tu"
-                            value={studentAccountForm.password}
-                            onChange={(event) =>
-                              setStudentAccountForm((prev) => ({
-                                ...prev,
-                                password: event.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-
-                        <label className="space-y-1">
-                          <span className="text-sm font-semibold text-[#2c5877]">
-                            Xac nhan password
-                          </span>
-                          <input
-                            type="password"
-                            className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] placeholder:text-[#5f6b76] outline-none focus:border-[#6aa8cf]"
-                            placeholder="Nhap lai password"
-                            value={studentAccountForm.confirmPassword}
-                            onChange={(event) =>
-                              setStudentAccountForm((prev) => ({
-                                ...prev,
-                                confirmPassword: event.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-
-                        <label className="space-y-1 md:col-span-2">
-                          <span className="text-sm font-semibold text-[#2c5877]">
-                            Avatar URL (khong bat buoc)
-                          </span>
-                          <input
-                            className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] placeholder:text-[#5f6b76] outline-none focus:border-[#6aa8cf]"
-                            placeholder="https://..."
-                            value={studentAccountForm.avatarUrl}
-                            onChange={(event) =>
-                              setStudentAccountForm((prev) => ({
-                                ...prev,
-                                avatarUrl: event.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-
-                        <div className="mt-1 flex justify-end gap-2 md:col-span-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (!isWorking) {
-                                setIsCreateStudentModalOpen(false);
-                              }
-                            }}
-                            className="h-10 rounded-[6px] border border-[#9ec3dd] bg-white px-4 text-sm font-semibold text-[#245977] transition hover:bg-[#edf6fd] disabled:opacity-60"
-                            disabled={isWorking}
-                          >
-                            Huy
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={isWorking}
-                            className="h-10 rounded-[6px] bg-[#0d6ea6] px-4 text-sm font-semibold text-white transition hover:bg-[#085d90] disabled:opacity-60"
-                          >
-                            {isWorking ? "Dang tao..." : "Tao tai khoan"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                ) : null}
-              </section>
+              <AccountManagementPanel authorization={session?.authorization} />
             ) : null}
 
             {activeTab.key === "roles" ? (
