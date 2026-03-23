@@ -85,6 +85,11 @@ export interface RoleListItem {
   functionCodes?: string[];
 }
 
+export interface RoleUpsertPayload {
+  roleName: string;
+  functionCodes?: string[];
+}
+
 export interface CourseSectionListItem {
   id: number;
   sectionCode?: string;

@@ -15,6 +15,7 @@ import type {
   PagedRows,
   PeriodListItem,
   RoleListItem,
+  RoleUpsertPayload,
 } from "@/lib/admin/types";
 
 const toArray = <TItem>(value: unknown): TItem[] => {
@@ -201,6 +202,54 @@ export const resetAccountPassword = async (
 export const getRoles = async (authorization: string): Promise<RoleListItem[]> => {
   const data = await getRequest<unknown>("/api/v1/roles", authorization);
   return toArray<RoleListItem>(data);
+};
+
+export const getRoleById = async (
+  roleId: number,
+  authorization: string,
+): Promise<RoleListItem> => {
+  const data = await getRequest<unknown>(`/api/v1/roles/${roleId}`, authorization);
+  return data as RoleListItem;
+};
+
+export const createRole = async (
+  payload: RoleUpsertPayload,
+  authorization: string,
+): Promise<RoleListItem> => {
+  const response = await apiRequest<ApiResponse<RoleListItem>>("/api/v1/roles", {
+    method: "POST",
+    body: payload,
+    accessToken: authorization,
+  });
+
+  return response.data;
+};
+
+export const updateRole = async (
+  roleId: number,
+  payload: RoleUpsertPayload,
+  authorization: string,
+): Promise<RoleListItem> => {
+  const response = await apiRequest<ApiResponse<RoleListItem>>(
+    `/api/v1/roles/${roleId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+
+  return response.data;
+};
+
+export const deleteRole = async (
+  roleId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(`/api/v1/roles/${roleId}`, {
+    method: "DELETE",
+    accessToken: authorization,
+  });
 };
 
 export const getRolePermissions = async (

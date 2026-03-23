@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { AccountManagementPanel } from "@/components/admin/account-management-panel";
+import { RolePermissionPanel } from "@/components/admin/role-permission-panel";
 import { useAuth } from "@/context/auth-context";
 import {
   getAdministrativeClasses,
@@ -19,8 +20,6 @@ import {
   getGuardians,
   getLecturers,
   getMajors,
-  getRolePermissions,
-  getRoles,
   getSectionGradeReports,
   getSpecializations,
   getStudentAttendances,
@@ -37,7 +36,6 @@ import type {
   DynamicRow,
   PagedRows,
   PeriodListItem,
-  RoleListItem,
 } from "@/lib/admin/types";
 
 const toErrorMessage = (error: unknown): string => {
@@ -125,8 +123,6 @@ export default function AdminDashboardPage() {
   const [tabError, setTabError] = useState("");
   const [tabMessage, setTabMessage] = useState("");
   const [isWorking, setIsWorking] = useState(false);
-  const [roles, setRoles] = useState<RoleListItem[]>([]);
-  const [permissions, setPermissions] = useState<string[]>([]);
   const [students, setStudents] = useState<PagedRows<DynamicRow>>({ rows: [] });
   const [lecturers, setLecturers] = useState<PagedRows<DynamicRow>>({ rows: [] });
   const [guardians, setGuardians] = useState<PagedRows<DynamicRow>>({ rows: [] });
@@ -273,14 +269,8 @@ export default function AdminDashboardPage() {
           break;
         }
         case "roles": {
-          const [roleRows, permissionRows] = await Promise.all([
-            getRoles(authorization),
-            getRolePermissions(authorization),
-          ]);
-          setRoles(roleRows);
-          setPermissions(permissionRows);
           setTabMessage(
-            `Da tai ${roleRows.length} role va ${permissionRows.length} quyen.`,
+            "Su dung module Vai tro & phan quyen de thao tac toan bo CRUD role.",
           );
           break;
         }
@@ -642,71 +632,7 @@ export default function AdminDashboardPage() {
             ) : null}
 
             {activeTab.key === "roles" ? (
-              <div className="space-y-4">
-                <section className={contentCardClass}>
-                  <div className={sectionTitleClass}>
-                    <h2>Danh sach role</h2>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void loadTabData("roles");
-                      }}
-                      disabled={isWorking}
-                      className="rounded-[4px] bg-[#0d6ea6] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#085d90] disabled:opacity-60"
-                    >
-                      Lam moi
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto px-4 py-4">
-                    <table className="min-w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-[#cfdfec] text-[#305970]">
-                          <th className="px-2 py-2">ID</th>
-                          <th className="px-2 py-2">Role name</th>
-                          <th className="px-2 py-2">Function codes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {roles.map((role) => (
-                          <tr key={role.id} className="border-b border-[#e0ebf4] text-[#3f6178]">
-                            <td className="px-2 py-2">{role.id}</td>
-                            <td className="px-2 py-2">{role.roleName || "-"}</td>
-                            <td className="px-2 py-2">{toDisplayValue(role.functionCodes)}</td>
-                          </tr>
-                        ))}
-                        {roles.length === 0 ? (
-                          <tr>
-                            <td colSpan={3} className="px-2 py-4 text-center text-[#577086]">
-                              Chua co role.
-                            </td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-
-                <section className={contentCardClass}>
-                  <div className={sectionTitleClass}>
-                    <h2>Tap permission he thong</h2>
-                    <span className="text-sm font-medium text-[#396786]">{permissions.length} permissions</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 px-4 py-4">
-                    {permissions.length > 0 ? (
-                      permissions.map((permission) => (
-                        <span
-                          key={permission}
-                          className="rounded-full border border-[#9ec3dd] bg-[#edf5fb] px-3 py-1 text-xs font-semibold text-[#1f5d86]"
-                        >
-                          {permission}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-sm text-[#577086]">Chua tai permission.</p>
-                    )}
-                  </div>
-                </section>
-              </div>
+              <RolePermissionPanel authorization={session?.authorization} />
             ) : null}
 
             {catalogTabKey
