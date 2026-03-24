@@ -4,26 +4,16 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { AccountManagementPanel } from "@/components/admin/account-management-panel";
+import { DynamicCrudPanel } from "@/components/admin/dynamic-crud-panel";
 import { RolePermissionPanel } from "@/components/admin/role-permission-panel";
 import { useAuth } from "@/context/auth-context";
 import {
-  getAdministrativeClasses,
   getAdmissionApplications,
   getAdmissionBenchmarks,
   getAdmissionBlocks,
   getAdmissionPeriods,
-  getClassrooms,
-  getCohorts,
-  getCourseSections,
-  getCourses,
-  getFaculties,
-  getGuardians,
-  getLecturers,
-  getMajors,
   getSectionGradeReports,
-  getSpecializations,
   getStudentAttendances,
-  getStudents,
 } from "@/lib/admin/service";
 import { adminFeatureTabs, adminTopHeaderTabs } from "@/lib/admin/tabs";
 import type {
@@ -32,7 +22,6 @@ import type {
   ApplicationListItem,
   BenchmarkListItem,
   BlockListItem,
-  CourseSectionListItem,
   DynamicRow,
   PagedRows,
   PeriodListItem,
@@ -116,6 +105,283 @@ const contentCardClass =
 const sectionTitleClass =
   "flex items-center justify-between border-b border-[#c5dced] px-4 py-2 text-[18px] font-semibold text-[#1a4f75]";
 
+type DynamicCrudTabConfig = {
+  title: string;
+  basePath: string;
+  listQuery?: Record<string, string | number | undefined>;
+  priorityColumns: string[];
+  createTemplate: Record<string, unknown>;
+  updateTemplate: Record<string, unknown>;
+  statusPatch?: {
+    fieldName: string;
+    pathSuffix: string;
+    options: string[];
+  };
+};
+
+const dynamicCrudTabConfigs: Partial<Record<AdminTabKey, DynamicCrudTabConfig>> = {
+  faculties: {
+    title: "Danh sach khoa",
+    basePath: "/api/v1/faculties",
+    priorityColumns: ["id", "facultyCode", "facultyName", "status"],
+    createTemplate: {
+      facultyCode: "",
+      facultyName: "",
+    },
+    updateTemplate: {
+      facultyCode: "",
+      facultyName: "",
+    },
+  },
+  majors: {
+    title: "Danh sach nganh",
+    basePath: "/api/v1/majors",
+    priorityColumns: ["id", "majorCode", "majorName", "facultyId", "status"],
+    createTemplate: {
+      facultyId: 1,
+      majorCode: "",
+      majorName: "",
+    },
+    updateTemplate: {
+      facultyId: 1,
+      majorCode: "",
+      majorName: "",
+    },
+  },
+  specializations: {
+    title: "Danh sach chuyen nganh",
+    basePath: "/api/v1/specializations",
+    priorityColumns: ["id", "specializationName", "majorId", "status"],
+    createTemplate: {
+      majorId: 1,
+      specializationName: "",
+    },
+    updateTemplate: {
+      majorId: 1,
+      specializationName: "",
+    },
+  },
+  cohorts: {
+    title: "Danh sach nien khoa",
+    basePath: "/api/v1/cohorts",
+    priorityColumns: ["id", "cohortName", "startYear", "endYear", "status"],
+    createTemplate: {
+      cohortName: "",
+      startYear: 2026,
+      endYear: 2030,
+      status: "ACTIVE",
+    },
+    updateTemplate: {
+      cohortName: "",
+      startYear: 2026,
+      endYear: 2030,
+      status: "ACTIVE",
+    },
+  },
+  courses: {
+    title: "Danh sach mon hoc",
+    basePath: "/api/v1/courses",
+    priorityColumns: [
+      "id",
+      "courseCode",
+      "courseName",
+      "credits",
+      "facultyId",
+      "status",
+    ],
+    createTemplate: {
+      courseCode: "",
+      courseName: "",
+      credits: 3,
+      facultyId: 1,
+      status: "ACTIVE",
+    },
+    updateTemplate: {
+      courseCode: "",
+      courseName: "",
+      credits: 3,
+      facultyId: 1,
+      status: "ACTIVE",
+    },
+  },
+  classrooms: {
+    title: "Danh sach phong hoc",
+    basePath: "/api/v1/classrooms",
+    priorityColumns: ["id", "roomName", "capacity", "roomType"],
+    createTemplate: {
+      roomName: "",
+      capacity: 40,
+      roomType: "THEORY",
+    },
+    updateTemplate: {
+      roomName: "",
+      capacity: 40,
+      roomType: "THEORY",
+    },
+  },
+  "administrative-classes": {
+    title: "Danh sach lop chu nhiem",
+    basePath: "/api/v1/administrative-classes",
+    priorityColumns: [
+      "id",
+      "className",
+      "cohortId",
+      "majorId",
+      "headLecturerId",
+      "maxCapacity",
+    ],
+    createTemplate: {
+      className: "",
+      headLecturerId: 1,
+      cohortId: 1,
+      majorId: 1,
+      maxCapacity: 60,
+    },
+    updateTemplate: {
+      className: "",
+      headLecturerId: 1,
+      cohortId: 1,
+      majorId: 1,
+      maxCapacity: 60,
+    },
+  },
+  students: {
+    title: "Quan ly sinh vien",
+    basePath: "/api/v1/students",
+    listQuery: {
+      page: 0,
+      size: 20,
+    },
+    priorityColumns: [
+      "id",
+      "studentCode",
+      "fullName",
+      "email",
+      "phone",
+      "status",
+      "classId",
+      "majorId",
+    ],
+    createTemplate: {
+      classId: 1,
+      majorId: 1,
+      specializationId: 1,
+      guardianId: 1,
+      studentCode: "",
+      fullName: "",
+      email: "",
+      nationalId: "",
+      dateOfBirth: "2004-01-01",
+      gender: true,
+      phone: "",
+      address: "",
+      ethnicity: "",
+      religion: "",
+      placeOfBirth: "",
+      nationality: "VN",
+    },
+    updateTemplate: {
+      classId: 1,
+      majorId: 1,
+      specializationId: 1,
+      guardianId: 1,
+      fullName: "",
+      email: "",
+      nationalId: "",
+      dateOfBirth: "2004-01-01",
+      gender: true,
+      phone: "",
+      address: "",
+      ethnicity: "",
+      religion: "",
+      placeOfBirth: "",
+      nationality: "VN",
+    },
+    statusPatch: {
+      fieldName: "status",
+      pathSuffix: "/status",
+      options: ["ACTIVE", "SUSPENDED", "GRADUATED", "DROPPED_OUT"],
+    },
+  },
+  lecturers: {
+    title: "Quan ly giang vien",
+    basePath: "/api/v1/lecturers",
+    listQuery: {
+      page: 0,
+      size: 20,
+    },
+    priorityColumns: ["id", "fullName", "email", "academicDegree", "phone"],
+    createTemplate: {
+      fullName: "",
+      email: "",
+      academicDegree: "",
+      phone: "",
+    },
+    updateTemplate: {
+      fullName: "",
+      email: "",
+      academicDegree: "",
+      phone: "",
+    },
+  },
+  guardians: {
+    title: "Quan ly phu huynh",
+    basePath: "/api/v1/guardians",
+    listQuery: {
+      page: 0,
+      size: 20,
+    },
+    priorityColumns: ["id", "fullName", "phone", "relationship"],
+    createTemplate: {
+      fullName: "",
+      phone: "",
+      relationship: "",
+    },
+    updateTemplate: {
+      fullName: "",
+      phone: "",
+      relationship: "",
+    },
+  },
+  "course-sections": {
+    title: "Quan ly lop hoc phan",
+    basePath: "/api/v1/course-sections",
+    priorityColumns: [
+      "id",
+      "sectionCode",
+      "displayName",
+      "courseId",
+      "lecturerId",
+      "semesterId",
+      "maxCapacity",
+      "status",
+    ],
+    createTemplate: {
+      sectionCode: "",
+      displayName: "",
+      courseId: 1,
+      lecturerId: 1,
+      semesterId: 1,
+      maxCapacity: 60,
+      status: "DRAFT",
+    },
+    updateTemplate: {
+      sectionCode: "",
+      displayName: "",
+      courseId: 1,
+      lecturerId: 1,
+      semesterId: 1,
+      maxCapacity: 60,
+      status: "DRAFT",
+    },
+    statusPatch: {
+      fieldName: "status",
+      pathSuffix: "/status",
+      options: ["DRAFT", "OPEN", "ONGOING", "FINISHED", "CANCELLED"],
+    },
+  },
+};
+
 export default function AdminDashboardPage() {
   const { session, logout } = useAuth();
 
@@ -123,10 +389,6 @@ export default function AdminDashboardPage() {
   const [tabError, setTabError] = useState("");
   const [tabMessage, setTabMessage] = useState("");
   const [isWorking, setIsWorking] = useState(false);
-  const [students, setStudents] = useState<PagedRows<DynamicRow>>({ rows: [] });
-  const [lecturers, setLecturers] = useState<PagedRows<DynamicRow>>({ rows: [] });
-  const [guardians, setGuardians] = useState<PagedRows<DynamicRow>>({ rows: [] });
-  const [courseSections, setCourseSections] = useState<CourseSectionListItem[]>([]);
 
   const [admissionPeriods, setAdmissionPeriods] = useState<PagedRows<PeriodListItem>>({
     rows: [],
@@ -138,7 +400,6 @@ export default function AdminDashboardPage() {
   const [admissionApplications, setAdmissionApplications] = useState<
     PagedRows<ApplicationListItem>
   >({ rows: [] });
-  const [catalogRows, setCatalogRows] = useState<DynamicRow[]>([]);
   const [gradeRows, setGradeRows] = useState<DynamicRow[]>([]);
   const [attendanceRows, setAttendanceRows] = useState<DynamicRow[]>([]);
   const [gradeSectionIdInput, setGradeSectionIdInput] = useState("");
@@ -149,49 +410,6 @@ export default function AdminDashboardPage() {
       adminFeatureTabs.find((item) => item.key === activeTabKey) ||
       adminFeatureTabs[0],
     [activeTabKey],
-  );
-
-  const studentColumns = useMemo(
-    () =>
-      buildColumns(students.rows, [
-        "id",
-        "studentCode",
-        "fullName",
-        "email",
-        "phone",
-        "status",
-      ]),
-    [students.rows],
-  );
-
-  const lecturerColumns = useMemo(
-    () =>
-      buildColumns(lecturers.rows, [
-        "id",
-        "fullName",
-        "email",
-        "academicDegree",
-        "phone",
-      ]),
-    [lecturers.rows],
-  );
-
-  const guardianColumns = useMemo(
-    () => buildColumns(guardians.rows, ["id", "fullName", "phone", "relationship"]),
-    [guardians.rows],
-  );
-
-  const catalogColumns = useMemo(
-    () =>
-      buildColumns(catalogRows, [
-        "id",
-        "code",
-        "name",
-        "displayName",
-        "fullName",
-        "status",
-      ]),
-    [catalogRows],
   );
 
   const gradeColumns = useMemo(
@@ -275,69 +493,47 @@ export default function AdminDashboardPage() {
           break;
         }
         case "faculties": {
-          const data = await getFaculties(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} khoa.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu khoa.");
           break;
         }
         case "majors": {
-          const data = await getMajors(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} nganh.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu nganh.");
           break;
         }
         case "specializations": {
-          const data = await getSpecializations(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} chuyen nganh.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu chuyen nganh.");
           break;
         }
         case "cohorts": {
-          const data = await getCohorts(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} nien khoa.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu nien khoa.");
           break;
         }
         case "courses": {
-          const data = await getCourses(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} mon hoc.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu mon hoc.");
           break;
         }
         case "classrooms": {
-          const data = await getClassrooms(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} phong hoc.`);
+          setTabMessage("Su dung module CRUD de quan ly du lieu phong hoc.");
           break;
         }
         case "administrative-classes": {
-          const data = await getAdministrativeClasses(authorization);
-          setCatalogRows(data.rows);
-          setTabMessage(`Da tai ${data.rows.length} lop chu nhiem.`);
+          setTabMessage("Su dung module CRUD de quan ly lop chu nhiem.");
           break;
         }
         case "students": {
-          const data = await getStudents(authorization);
-          setStudents(data);
-          setTabMessage(`Da tai ${data.rows.length} sinh vien.`);
+          setTabMessage("Su dung module CRUD de quan ly sinh vien.");
           break;
         }
         case "lecturers": {
-          const data = await getLecturers(authorization);
-          setLecturers(data);
-          setTabMessage(`Da tai ${data.rows.length} giang vien.`);
+          setTabMessage("Su dung module CRUD de quan ly giang vien.");
           break;
         }
         case "guardians": {
-          const data = await getGuardians(authorization);
-          setGuardians(data);
-          setTabMessage(`Da tai ${data.rows.length} phu huynh.`);
+          setTabMessage("Su dung module CRUD de quan ly phu huynh.");
           break;
         }
         case "course-sections": {
-          const data = await getCourseSections(authorization);
-          setCourseSections(data);
-          setTabMessage(`Da tai ${data.length} lop hoc phan.`);
+          setTabMessage("Su dung module CRUD de quan ly lop hoc phan.");
           break;
         }
         case "admissions": {
@@ -465,22 +661,7 @@ export default function AdminDashboardPage() {
     );
   };
 
-  const catalogTabTitles: Partial<Record<AdminTabKey, string>> = {
-    faculties: "Danh sach khoa",
-    majors: "Danh sach nganh",
-    specializations: "Danh sach chuyen nganh",
-    cohorts: "Danh sach nien khoa",
-    courses: "Danh sach mon hoc",
-    classrooms: "Danh sach phong hoc",
-    "administrative-classes": "Danh sach lop chu nhiem",
-  };
-
-  const catalogTabKey = Object.prototype.hasOwnProperty.call(
-    catalogTabTitles,
-    activeTab.key,
-  )
-    ? (activeTab.key as keyof typeof catalogTabTitles)
-    : null;
+  const activeDynamicCrudConfig = dynamicCrudTabConfigs[activeTab.key];
 
   return (
     <AuthGuard allowedRoles={["ADMIN"]}>
@@ -635,13 +816,18 @@ export default function AdminDashboardPage() {
               <RolePermissionPanel authorization={session?.authorization} />
             ) : null}
 
-            {catalogTabKey
-              ? renderDynamicTable(
-                  catalogTabTitles[catalogTabKey] || activeTab.label,
-                  catalogRows,
-                  catalogColumns,
-                )
-              : null}
+            {activeDynamicCrudConfig ? (
+              <DynamicCrudPanel
+                authorization={session?.authorization}
+                title={activeDynamicCrudConfig.title}
+                basePath={activeDynamicCrudConfig.basePath}
+                listQuery={activeDynamicCrudConfig.listQuery}
+                priorityColumns={activeDynamicCrudConfig.priorityColumns}
+                createTemplate={activeDynamicCrudConfig.createTemplate}
+                updateTemplate={activeDynamicCrudConfig.updateTemplate}
+                statusPatch={activeDynamicCrudConfig.statusPatch}
+              />
+            ) : null}
 
             {activeTab.key === "grade-management" ? (
               <div className="space-y-4">
@@ -709,68 +895,6 @@ export default function AdminDashboardPage() {
               </div>
             ) : null}
 
-            {activeTab.key === "students"
-              ? renderDynamicTable("Danh sach sinh vien", students.rows, studentColumns)
-              : null}
-
-            {activeTab.key === "lecturers"
-              ? renderDynamicTable("Danh sach giang vien", lecturers.rows, lecturerColumns)
-              : null}
-
-            {activeTab.key === "guardians"
-              ? renderDynamicTable("Danh sach phu huynh", guardians.rows, guardianColumns)
-              : null}
-
-            {activeTab.key === "course-sections" ? (
-              <section className={contentCardClass}>
-                <div className={sectionTitleClass}>
-                  <h2>Lop hoc phan</h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void loadTabData("course-sections");
-                    }}
-                    disabled={isWorking}
-                    className="rounded-[4px] bg-[#0d6ea6] px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-[#085d90] disabled:opacity-60"
-                  >
-                    Lam moi
-                  </button>
-                </div>
-                <div className="overflow-x-auto px-4 py-4">
-                  <table className="min-w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-[#cfdfec] text-[#305970]">
-                        <th className="px-2 py-2">ID</th>
-                        <th className="px-2 py-2">Section code</th>
-                        <th className="px-2 py-2">Display name</th>
-                        <th className="px-2 py-2">Course</th>
-                        <th className="px-2 py-2">Lecturer</th>
-                        <th className="px-2 py-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {courseSections.map((item) => (
-                        <tr key={item.id} className="border-b border-[#e0ebf4] text-[#3f6178]">
-                          <td className="px-2 py-2">{item.id}</td>
-                          <td className="px-2 py-2">{item.sectionCode || "-"}</td>
-                          <td className="px-2 py-2">{item.displayName || "-"}</td>
-                          <td className="px-2 py-2">{item.courseName || "-"}</td>
-                          <td className="px-2 py-2">{item.lecturerName || "-"}</td>
-                          <td className="px-2 py-2">{item.status || "-"}</td>
-                        </tr>
-                      ))}
-                      {courseSections.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-2 py-4 text-center text-[#577086]">
-                            Chua co du lieu lop hoc phan.
-                          </td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            ) : null}
 
             {activeTab.key === "admissions" ? (
               <div className="space-y-4">

@@ -115,6 +115,14 @@ const getRequest = async <TData>(
   return response.data;
 };
 
+const isObject = (value: unknown): value is Record<string, unknown> => {
+  return value !== null && typeof value === "object";
+};
+
+const toDynamicRow = (value: unknown): DynamicRow => {
+  return isObject(value) ? (value as DynamicRow) : {};
+};
+
 export const getAccounts = async (
   authorization: string,
   filter: AccountSearchFilter = {},
@@ -132,6 +140,76 @@ export const getAccounts = async (
   );
 
   return toPagedRows<AccountListItem>(data);
+};
+
+export const getDynamicListByPath = async (
+  path: string,
+  authorization: string,
+  queryParams?: Record<string, string | number | undefined>,
+): Promise<PagedRows<DynamicRow>> => {
+  const fullPath = `${path}${buildQueryString(queryParams || {})}`;
+  const data = await getRequest<unknown>(fullPath, authorization);
+  return toDynamicPagedRows(data);
+};
+
+export const getDynamicByPath = async (
+  path: string,
+  authorization: string,
+): Promise<DynamicRow> => {
+  const data = await getRequest<unknown>(path, authorization);
+  return toDynamicRow(data);
+};
+
+export const createDynamicByPath = async (
+  path: string,
+  payload: Record<string, unknown>,
+  authorization: string,
+): Promise<DynamicRow> => {
+  const response = await apiRequest<ApiResponse<unknown>>(path, {
+    method: "POST",
+    body: payload,
+    accessToken: authorization,
+  });
+
+  return toDynamicRow(response.data);
+};
+
+export const updateDynamicByPath = async (
+  path: string,
+  payload: Record<string, unknown>,
+  authorization: string,
+): Promise<DynamicRow> => {
+  const response = await apiRequest<ApiResponse<unknown>>(path, {
+    method: "PUT",
+    body: payload,
+    accessToken: authorization,
+  });
+
+  return toDynamicRow(response.data);
+};
+
+export const patchDynamicByPath = async (
+  path: string,
+  payload: Record<string, unknown>,
+  authorization: string,
+): Promise<DynamicRow> => {
+  const response = await apiRequest<ApiResponse<unknown>>(path, {
+    method: "PATCH",
+    body: payload,
+    accessToken: authorization,
+  });
+
+  return toDynamicRow(response.data);
+};
+
+export const deleteDynamicByPath = async (
+  path: string,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(path, {
+    method: "DELETE",
+    accessToken: authorization,
+  });
 };
 
 export const getAccountById = async (
