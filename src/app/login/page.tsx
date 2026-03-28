@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthInput } from "@/components/auth/auth-input";
 import {
@@ -133,13 +134,13 @@ function LoginPageContent() {
           <span>{isSubmitting ? "Đang xử lý..." : "Đăng nhập"}</span>
         </button>
 
-        <button
-          type="button"
+        <Link
+          href="/admissions"
           className="flex h-10 w-full items-center justify-center gap-2 rounded-[4px] bg-[#0d6ea6] text-lg font-semibold text-white transition hover:bg-[#085d90]"
         >
           <BellIcon className="h-4 w-4 text-[#ef2e2e]" />
-          <span>Xem thông báo - tin tức</span>
-        </button>
+          <span>Tuyển sinh công khai</span>
+        </Link>
       </form>
     </AuthPageShell>
   );

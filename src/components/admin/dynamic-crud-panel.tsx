@@ -18,16 +18,28 @@ interface StatusPatchConfig {
   options: string[];
 }
 
+interface FieldLookupConfig {
+  path: string;
+  query?: Record<string, string | number | undefined>;
+  valueKey?: string;
+  labelKeys?: string[];
+  dependsOn?: string;
+  pathTemplate?: string;
+  disableUntilDependsOn?: boolean;
+}
+
 interface DynamicCrudPanelProps {
   authorization?: string;
   title: string;
   basePath: string;
+  listPath?: string;
   listQuery?: Record<string, string | number | undefined>;
   priorityColumns?: string[];
   createTemplate: Record<string, unknown>;
   updateTemplate: Record<string, unknown>;
   idFieldCandidates?: string[];
   statusPatch?: StatusPatchConfig;
+  fieldLookups?: Record<string, FieldLookupConfig>;
 }
 
 type FormMode = "create" | "edit";
@@ -66,15 +78,11 @@ const toDisplayValue = (value: unknown): string => {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => toDisplayValue(item)).join(", ");
+    return `${value.length} mục`;
   }
 
   if (typeof value === "object") {
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return "[Object]";
-    }
+    return "Có dữ liệu";
   }
 
   return String(value);
@@ -84,16 +92,25 @@ const buildColumns = (
   rows: DynamicRow[],
   priorityColumns: string[],
 ): string[] => {
-  const keys = new Set<string>();
+  const scalarKeys = new Set<string>();
+  const complexKeys = new Set<string>();
 
   for (const row of rows.slice(0, 80)) {
-    for (const key of Object.keys(row)) {
-      keys.add(key);
+    for (const [key, value] of Object.entries(row)) {
+      if (Array.isArray(value) || (value !== null && typeof value === "object")) {
+        complexKeys.add(key);
+        continue;
+      }
+
+      scalarKeys.add(key);
     }
   }
 
-  const priority = priorityColumns.filter((key) => keys.has(key));
-  const others = [...keys].filter((key) => !priorityColumns.includes(key)).sort();
+  const visibleKeys = [...scalarKeys].filter((key) => !complexKeys.has(key));
+  const priority = priorityColumns.filter((key) => visibleKeys.includes(key));
+  const others = visibleKeys
+    .filter((key) => !priorityColumns.includes(key))
+    .sort();
 
   return [...priority, ...others];
 };
@@ -141,16 +158,156 @@ const hydratePayloadFromTemplate = (
   return result;
 };
 
+const cloneRecord = (value: Record<string, unknown>): Record<string, unknown> => {
+  const cloned: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (Array.isArray(item)) {
+      cloned[key] = [...item];
+      continue;
+    }
+    if (isObject(item)) {
+      cloned[key] = cloneRecord(item);
+      continue;
+    }
+    cloned[key] = item;
+  }
+  return cloned;
+};
+
+const getValueByPath = (source: Record<string, unknown>, path: string): unknown => {
+  const keys = path.split(".");
+  let cursor: unknown = source;
+  for (const key of keys) {
+    if (!isObject(cursor) || !(key in cursor)) {
+      return undefined;
+    }
+    cursor = cursor[key];
+  }
+  return cursor;
+};
+
+const setValueByPath = (
+  source: Record<string, unknown>,
+  path: string,
+  value: unknown,
+): Record<string, unknown> => {
+  const keys = path.split(".");
+  const next = cloneRecord(source);
+  let cursor: Record<string, unknown> = next;
+  for (let index = 0; index < keys.length - 1; index += 1) {
+    const key = keys[index];
+    const currentValue = cursor[key];
+    if (!isObject(currentValue)) {
+      cursor[key] = {};
+    }
+    cursor = cursor[key] as Record<string, unknown>;
+  }
+  cursor[keys[keys.length - 1]] = value;
+  return next;
+};
+
+const toInputText = (value: unknown): string => {
+  if (value === undefined || value === null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "";
+  }
+};
+
+const hasLookupDependencyValue = (value: unknown): boolean => {
+  if (value === undefined || value === null) {
+    return false;
+  }
+
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+
+  return true;
+};
+
+const coercePayloadByTemplate = (
+  template: Record<string, unknown>,
+  source: Record<string, unknown>,
+): Record<string, unknown> => {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, templateValue] of Object.entries(template)) {
+    const sourceValue = source[key];
+
+    if (Array.isArray(templateValue)) {
+      if (Array.isArray(sourceValue)) {
+        result[key] = sourceValue;
+      } else if (typeof sourceValue === "string") {
+        try {
+          const parsed = JSON.parse(sourceValue) as unknown;
+          result[key] = Array.isArray(parsed) ? parsed : templateValue;
+        } catch {
+          result[key] = templateValue;
+        }
+      } else {
+        result[key] = templateValue;
+      }
+      continue;
+    }
+
+    if (isObject(templateValue)) {
+      result[key] = coercePayloadByTemplate(
+        templateValue,
+        isObject(sourceValue) ? sourceValue : {},
+      );
+      continue;
+    }
+
+    if (typeof templateValue === "number") {
+      if (typeof sourceValue === "number") {
+        result[key] = sourceValue;
+      } else {
+        const parsed = Number(sourceValue);
+        result[key] = Number.isFinite(parsed) ? parsed : templateValue;
+      }
+      continue;
+    }
+
+    if (typeof templateValue === "boolean") {
+      if (typeof sourceValue === "boolean") {
+        result[key] = sourceValue;
+      } else {
+        result[key] = String(sourceValue).toLowerCase() === "true";
+      }
+      continue;
+    }
+
+    result[key] =
+      sourceValue === undefined || sourceValue === null
+        ? templateValue
+        : String(sourceValue);
+  }
+
+  return result;
+};
+
 export const DynamicCrudPanel = ({
   authorization,
   title,
   basePath,
+  listPath,
   listQuery,
   priorityColumns = ["id", "code", "name", "status"],
   createTemplate,
   updateTemplate,
   idFieldCandidates = defaultIdFieldCandidates,
   statusPatch,
+  fieldLookups,
 }: DynamicCrudPanelProps) => {
   const [dataRows, setDataRows] = useState<PagedRows<DynamicRow>>(emptyRows);
   const [isLoading, setIsLoading] = useState(false);
@@ -170,7 +327,34 @@ export const DynamicCrudPanel = ({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [formMode, setFormMode] = useState<FormMode>("create");
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editorJson, setEditorJson] = useState("{}");
+  const [formPayload, setFormPayload] = useState<Record<string, unknown>>({});
+  const [lookupOptionsByField, setLookupOptionsByField] = useState<
+    Record<string, Array<{ value: string; label: string }>>
+  >({});
+
+  const lookupDependencyKey = useMemo(() => {
+    if (!fieldLookups) {
+      return "";
+    }
+
+    const parts = Object.entries(fieldLookups)
+      .map(([fieldPath, config]) => {
+        if (!config.dependsOn) {
+          return `${fieldPath}=`;
+        }
+
+        const dependencyValue = getValueByPath(formPayload, config.dependsOn);
+        const token = hasLookupDependencyValue(dependencyValue)
+          ? String(dependencyValue).trim()
+          : "";
+        return `${fieldPath}=${token}`;
+      })
+      .sort();
+
+    return parts.join("|");
+  }, [fieldLookups, formPayload]);
+
+  const effectiveListPath = listPath || basePath;
 
   const runAction = useCallback(async (action: () => Promise<void>) => {
     try {
@@ -192,7 +376,7 @@ export const DynamicCrudPanel = ({
     }
 
     await runAction(async () => {
-      const rows = await getDynamicListByPath(basePath, authorization, listQuery);
+      const rows = await getDynamicListByPath(effectiveListPath, authorization, listQuery);
       setDataRows(rows);
 
       if (statusPatch) {
@@ -214,7 +398,7 @@ export const DynamicCrudPanel = ({
     });
   }, [
     authorization,
-    basePath,
+    effectiveListPath,
     idFieldCandidates,
     listQuery,
     runAction,
@@ -224,6 +408,112 @@ export const DynamicCrudPanel = ({
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!authorization || !fieldLookups || !isEditorOpen) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadLookups = async () => {
+      const dependencyValuesByField = new Map<string, string>();
+      if (lookupDependencyKey) {
+        for (const token of lookupDependencyKey.split("|")) {
+          const [fieldPath, ...valueParts] = token.split("=");
+          dependencyValuesByField.set(fieldPath, valueParts.join("="));
+        }
+      }
+
+      const entries = Object.entries(fieldLookups);
+      const loaded = await Promise.all(
+        entries.map(async ([fieldPath, config]) => {
+          const dependencyValue = dependencyValuesByField.get(fieldPath) || "";
+          const requiresDependency =
+            Boolean(config.dependsOn) && config.disableUntilDependsOn !== false;
+
+          if (requiresDependency && !dependencyValue) {
+            return [fieldPath, [] as Array<{ value: string; label: string }>] as const;
+          }
+
+          const resolvedPath = dependencyValue
+            ? (config.pathTemplate || config.path).replace(
+                "{value}",
+                encodeURIComponent(dependencyValue),
+              )
+            : config.path;
+
+          try {
+            const rows = await getDynamicListByPath(
+              resolvedPath,
+              authorization,
+              config.query,
+            );
+            const valueKey = config.valueKey || "id";
+            const labelKeys = config.labelKeys || [
+              "name",
+              "fullName",
+              "className",
+              "courseName",
+              "facultyName",
+              "majorName",
+              "specializationName",
+              "cohortName",
+              "sectionCode",
+              "displayName",
+              "code",
+            ];
+
+            const options = rows.rows
+              .map((row) => {
+                const rawValue = row[valueKey];
+                if (
+                  rawValue === undefined ||
+                  rawValue === null ||
+                  (typeof rawValue === "string" && !rawValue.trim())
+                ) {
+                  return null;
+                }
+
+                const label =
+                  labelKeys
+                    .map((key) => row[key])
+                    .find((value) => typeof value === "string" && value.trim())
+                    ?.toString() || String(rawValue);
+
+                return {
+                  value: String(rawValue),
+                  label,
+                };
+              })
+              .filter((item): item is { value: string; label: string } => item !== null);
+
+            return [fieldPath, options] as const;
+          } catch {
+            return [fieldPath, [] as Array<{ value: string; label: string }>] as const;
+          }
+        }),
+      );
+
+      if (cancelled) {
+        return;
+      }
+
+      setLookupOptionsByField((prev) => {
+        const next = { ...prev };
+        for (const [fieldPath, options] of loaded) {
+          next[fieldPath] = options;
+        }
+        return next;
+      });
+    };
+
+    void loadLookups();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authorization, fieldLookups, isEditorOpen, lookupDependencyKey]);
 
   const tableColumns = useMemo(() => {
     return buildColumns(dataRows.rows, priorityColumns);
@@ -245,7 +535,7 @@ export const DynamicCrudPanel = ({
   const openCreateEditor = () => {
     setFormMode("create");
     setEditingRowId(null);
-    setEditorJson(JSON.stringify(createTemplate, null, 2));
+    setFormPayload(cloneRecord(createTemplate));
     setIsEditorOpen(true);
   };
 
@@ -260,7 +550,7 @@ export const DynamicCrudPanel = ({
       const hydrated = hydratePayloadFromTemplate(updateTemplate, detail);
       setFormMode("edit");
       setEditingRowId(rowId);
-      setEditorJson(JSON.stringify(hydrated, null, 2));
+      setFormPayload(hydrated);
       setIsEditorOpen(true);
     });
   };
@@ -281,18 +571,10 @@ export const DynamicCrudPanel = ({
       return;
     }
 
-    let payload: Record<string, unknown>;
-    try {
-      const parsed = JSON.parse(editorJson) as unknown;
-      if (!isObject(parsed)) {
-        setErrorMessage("JSON payload phai la object.");
-        return;
-      }
-      payload = parsed;
-    } catch {
-      setErrorMessage("JSON payload không hop le.");
-      return;
-    }
+    const payload = coercePayloadByTemplate(
+      formMode === "create" ? createTemplate : updateTemplate,
+      formPayload,
+    );
 
     await runAction(async () => {
       if (formMode === "create") {
@@ -307,7 +589,7 @@ export const DynamicCrudPanel = ({
       }
 
       setIsEditorOpen(false);
-      const rows = await getDynamicListByPath(basePath, authorization, listQuery);
+      const rows = await getDynamicListByPath(effectiveListPath, authorization, listQuery);
       setDataRows(rows);
     });
   };
@@ -325,7 +607,7 @@ export const DynamicCrudPanel = ({
 
     await runAction(async () => {
       await deleteDynamicByPath(`${basePath}/${rowId}`, authorization);
-      const rows = await getDynamicListByPath(basePath, authorization, listQuery);
+      const rows = await getDynamicListByPath(effectiveListPath, authorization, listQuery);
       setDataRows(rows);
       setSuccessMessage(`Đã xóa bản ghi #${rowId}.`);
     });
@@ -352,9 +634,176 @@ export const DynamicCrudPanel = ({
         { [statusPatch.fieldName]: nextStatus },
         authorization,
       );
-      const rows = await getDynamicListByPath(basePath, authorization, listQuery);
+      const rows = await getDynamicListByPath(effectiveListPath, authorization, listQuery);
       setDataRows(rows);
       setSuccessMessage(`Đã cập nhật trạng thái bản ghi #${rowId}.`);
+    });
+  };
+
+  const renderFormFields = (
+    template: Record<string, unknown>,
+    parentPath = "",
+  ) => {
+    return Object.entries(template).map(([key, templateValue]) => {
+      const path = parentPath ? `${parentPath}.${key}` : key;
+      const currentValue = getValueByPath(formPayload, path);
+      const lookupConfig = fieldLookups?.[path];
+      const lookupOptions: Array<{ value: string; label: string }> =
+        lookupOptionsByField[path] || [];
+      const hasLookup = Boolean(lookupConfig);
+      const dependencyValue = lookupConfig?.dependsOn
+        ? getValueByPath(formPayload, lookupConfig.dependsOn)
+        : undefined;
+      const isLookupDisabled =
+        Boolean(lookupConfig?.dependsOn) &&
+        lookupConfig?.disableUntilDependsOn !== false &&
+        !hasLookupDependencyValue(dependencyValue);
+
+      if (isObject(templateValue)) {
+        return (
+          <fieldset key={path} className="rounded-[8px] border border-[#d3e3ef] p-3">
+            <legend className="px-1 text-sm font-semibold text-[#2c5877]">
+              {toColumnLabel(key)}
+            </legend>
+            <div className="grid gap-3 md:grid-cols-2">
+              {renderFormFields(templateValue, path)}
+            </div>
+          </fieldset>
+        );
+      }
+
+      if (Array.isArray(templateValue)) {
+        return (
+          <label key={path} className="space-y-1">
+            <span className="text-sm font-semibold text-[#2c5877]">
+              {toColumnLabel(key)} (JSON array)
+            </span>
+            <textarea
+              value={toInputText(currentValue ?? templateValue)}
+              onChange={(event) =>
+                setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+              }
+              className="min-h-[90px] w-full rounded-[6px] border border-[#c8d3dd] bg-[#fbfdff] px-3 py-2 font-mono text-xs text-[#111827] outline-none focus:border-[#6aa8cf]"
+              spellCheck={false}
+            />
+          </label>
+        );
+      }
+
+      if (typeof templateValue === "boolean") {
+        return (
+          <label key={path} className="space-y-1">
+            <span className="text-sm font-semibold text-[#2c5877]">
+              {toColumnLabel(key)}
+            </span>
+            <select
+              value={String(currentValue ?? templateValue)}
+              onChange={(event) =>
+                setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+              }
+              className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
+            >
+              <option value="true">True</option>
+              <option value="false">False</option>
+            </select>
+          </label>
+        );
+      }
+
+      if (typeof templateValue === "number") {
+        if (hasLookup) {
+          return (
+            <label key={path} className="space-y-1">
+              <span className="text-sm font-semibold text-[#2c5877]">
+                {toColumnLabel(key)}
+              </span>
+              <select
+                value={toInputText(currentValue ?? templateValue)}
+                onChange={(event) =>
+                  setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+                }
+                disabled={isLookupDisabled}
+                className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
+              >
+                <option value="">Chọn {toColumnLabel(key)}</option>
+                {lookupOptions.map((option) => (
+                  <option key={`${path}-${option.value}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {isLookupDisabled ? (
+                <span className="text-xs text-[#6b8497]">
+                  Chọn {toColumnLabel(lookupConfig?.dependsOn || "")} trước để tải danh sách.
+                </span>
+              ) : null}
+            </label>
+          );
+        }
+
+        return (
+          <label key={path} className="space-y-1">
+            <span className="text-sm font-semibold text-[#2c5877]">
+              {toColumnLabel(key)}
+            </span>
+            <input
+              type="number"
+              step="any"
+              value={toInputText(currentValue ?? templateValue)}
+              onChange={(event) =>
+                setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+              }
+              className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
+            />
+          </label>
+        );
+      }
+
+      if (hasLookup) {
+        return (
+          <label key={path} className="space-y-1">
+            <span className="text-sm font-semibold text-[#2c5877]">
+              {toColumnLabel(key)}
+            </span>
+            <select
+              value={toInputText(currentValue ?? templateValue)}
+              onChange={(event) =>
+                setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+              }
+              disabled={isLookupDisabled}
+              className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
+            >
+              <option value="">Chọn {toColumnLabel(key)}</option>
+              {lookupOptions.map((option) => (
+                <option key={`${path}-${option.value}`} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {isLookupDisabled ? (
+              <span className="text-xs text-[#6b8497]">
+                Chọn {toColumnLabel(lookupConfig?.dependsOn || "")} trước để tải danh sách.
+              </span>
+            ) : null}
+          </label>
+        );
+      }
+
+      return (
+        <label key={path} className="space-y-1">
+          <span className="text-sm font-semibold text-[#2c5877]">
+            {toColumnLabel(key)}
+          </span>
+          <input
+            type="text"
+            value={toInputText(currentValue ?? templateValue)}
+            onChange={(event) =>
+              setFormPayload((prev) => setValueByPath(prev, path, event.target.value))
+            }
+            className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
+          />
+        </label>
+      );
     });
   };
 
@@ -570,14 +1019,13 @@ export const DynamicCrudPanel = ({
 
             <form className="space-y-3 px-5 py-4" onSubmit={handleSubmitEditor}>
               <p className="text-sm text-[#355970]">
-                Modal này vẫn hỗ trợ JSON để giữ tính linh hoạt cho các danh mục có schema khác nhau.
+                Điền form trực quan theo schema cấu hình của danh mục.
               </p>
-              <textarea
-                value={editorJson}
-                onChange={(event) => setEditorJson(event.target.value)}
-                className="min-h-[340px] w-full rounded-[8px] border border-[#c8d3dd] bg-[#fbfdff] px-3 py-2 font-mono text-sm text-[#111827] outline-none focus:border-[#6aa8cf]"
-                spellCheck={false}
-              />
+              <div className="max-h-[60vh] overflow-y-auto rounded-[8px] border border-[#d3e3ef] bg-[#fbfdff] p-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {renderFormFields(formMode === "create" ? createTemplate : updateTemplate)}
+                </div>
+              </div>
 
               <div className="mt-1 flex justify-end gap-2">
                 <button
@@ -607,7 +1055,3 @@ export const DynamicCrudPanel = ({
     </section>
   );
 };
-
-
-
-

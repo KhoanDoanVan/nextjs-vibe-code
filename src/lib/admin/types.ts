@@ -128,11 +128,145 @@ export interface BenchmarkListItem {
 export interface ApplicationListItem {
   id: number;
   fullName?: string;
+  dateOfBirth?: string;
+  email?: string;
+  phone?: string;
+  nationalId?: string;
+  address?: string;
   totalScore?: number;
   status?: string;
+  approvalDate?: string;
+  periodId?: number;
   majorName?: string;
+  majorId?: number;
   blockName?: string;
+  blockId?: number;
   periodName?: string;
+}
+
+export type AdmissionApplicationStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "ENROLLED"
+  | "REJECTED";
+
+export type AdmissionPeriodStatus = "UPCOMING" | "PAUSED" | "OPEN" | "CLOSED";
+
+export interface AdmissionReviewPayload {
+  status: AdmissionApplicationStatus;
+  note?: string;
+}
+
+export interface AdmissionBulkReviewPayload {
+  applicationIds: number[];
+  status: AdmissionApplicationStatus;
+  note?: string;
+}
+
+export interface AdmissionOnboardingPayload {
+  periodId: number;
+  cohortId: number;
+}
+
+export interface AdmissionPeriodUpsertPayload {
+  periodName: string;
+  startTime: string;
+  endTime: string;
+  status: AdmissionPeriodStatus;
+}
+
+export interface AdmissionBlockUpsertPayload {
+  blockName: string;
+  description?: string;
+}
+
+export interface AdmissionBenchmarkUpsertPayload {
+  majorId: number;
+  blockId: number;
+  periodId: number;
+  score: number;
+}
+
+export interface AdmissionBenchmarkItem {
+  majorId: number;
+  blockId: number;
+  score: number;
+}
+
+export interface AdmissionBenchmarkBulkPayload {
+  periodId: number;
+  benchmarks: AdmissionBenchmarkItem[];
+}
+
+export interface AdmissionSelectionOption {
+  id?: number;
+  code?: string;
+  name?: string;
+  label?: string;
+  [key: string]: unknown;
+}
+
+export interface AdmissionSelectionOptions {
+  majors: AdmissionSelectionOption[];
+  blocks: AdmissionSelectionOption[];
+  periods: AdmissionSelectionOption[];
+}
+
+export type GradeReportStatus = "DRAFT" | "PUBLISHED" | "LOCKED";
+
+export interface GradeDetailPayload {
+  componentId: number;
+  score: number;
+}
+
+export interface GradeReportUpsertPayload {
+  registrationId: number;
+  gradeDetails: GradeDetailPayload[];
+  status?: GradeReportStatus;
+}
+
+export interface GradeReportItem {
+  id?: number;
+  registrationId?: number;
+  studentId?: number;
+  studentName?: string;
+  studentCode?: string;
+  sectionId?: number;
+  courseName?: string;
+  finalScore?: number;
+  letterGrade?: string;
+  status?: GradeReportStatus | string;
+  createdAt?: string;
+  gradeDetails?: Array<Record<string, unknown>>;
+}
+
+export type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE" | "EXCUSED";
+
+export interface AttendanceBatchItemPayload {
+  courseRegistrationId: number;
+  status: AttendanceStatus;
+  note?: string;
+}
+
+export interface AttendanceBatchPayload {
+  items: AttendanceBatchItemPayload[];
+}
+
+export interface AttendanceUpdatePayload {
+  status: AttendanceStatus;
+  note?: string;
+}
+
+export interface AttendanceItem {
+  id?: number;
+  sessionId?: number;
+  sessionDate?: string;
+  courseRegistrationId?: number;
+  studentId?: number;
+  studentName?: string;
+  studentCode?: string;
+  status?: AttendanceStatus | string;
+  note?: string;
 }
 
 export type DynamicRow = Record<string, unknown>;

@@ -1,11 +1,12 @@
 ﻿"use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useToastFeedback } from "@/hooks/use-toast-feedback";
 import {
   createDynamicByPath,
   deleteDynamicByPath,
   getDynamicListByPath,
+  getRecurringScheduleById,
   updateDynamicByPath,
 } from "@/lib/admin/service";
 import type { DynamicRow } from "@/lib/admin/types";
@@ -163,6 +164,13 @@ export const RecurringSchedulePanel = ({
   authorization,
 }: RecurringSchedulePanelProps) => {
   const [sectionIdInput, setSectionIdInput] = useState("");
+  const [scheduleIdInput, setScheduleIdInput] = useState("");
+  const [sectionOptions, setSectionOptions] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
+  const [classroomOptions, setClassroomOptions] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
   const [rows, setRows] = useState<RecurringScheduleRow[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
   const [sessionRows, setSessionRows] = useState<ClassSessionRow[]>([]);
@@ -208,8 +216,96 @@ export const RecurringSchedulePanel = ({
       const nextRows = toScheduleRows(response.rows);
       setRows(nextRows);
       setSelectedScheduleId(nextRows[0]?.id || null);
+      setScheduleIdInput(nextRows[0] ? String(nextRows[0].id) : "");
       setSessionRows([]);
       setSuccessMessage(`Đã tải ${nextRows.length} lịch học lap lai cua section ${sectionId}.`);
+    } catch (error) {
+      setErrorMessage(toErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadSelectionOptions = useCallback(async () => {
+    if (!authorization) {
+      return;
+    }
+
+    try {
+      const [sections, classrooms] = await Promise.all([
+        getDynamicListByPath("/api/v1/course-sections", authorization),
+        getDynamicListByPath("/api/v1/classrooms", authorization),
+      ]);
+
+      const nextSections = sections.rows
+        .map((item) => {
+          const id = Number(item.id || 0);
+          if (!Number.isInteger(id) || id <= 0) {
+            return null;
+          }
+          const label =
+            (typeof item.displayName === "string" && item.displayName) ||
+            (typeof item.sectionCode === "string" && item.sectionCode) ||
+            String(id);
+          return { id, label };
+        })
+        .filter((item): item is { id: number; label: string } => item !== null);
+
+      const nextClassrooms = classrooms.rows
+        .map((item) => {
+          const id = Number(item.id || 0);
+          if (!Number.isInteger(id) || id <= 0) {
+            return null;
+          }
+          const label =
+            (typeof item.roomName === "string" && item.roomName) || String(id);
+          return { id, label };
+        })
+        .filter((item): item is { id: number; label: string } => item !== null);
+
+      setSectionOptions(nextSections);
+      setClassroomOptions(nextClassrooms);
+    } catch {
+      setSectionOptions([]);
+      setClassroomOptions([]);
+    }
+  }, [authorization]);
+
+  useEffect(() => {
+    void loadSelectionOptions();
+  }, [loadSelectionOptions]);
+
+  const loadScheduleById = async () => {
+    if (!authorization) {
+      setErrorMessage("Không tìm thấy phiên đăng nhập. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    const scheduleId = Number(scheduleIdInput);
+    if (!Number.isInteger(scheduleId) || scheduleId <= 0) {
+      setErrorMessage("Vui lòng nhap schedule ID hop le.");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage("");
+      const response = await getRecurringScheduleById(scheduleId, authorization);
+      const row = toScheduleRows([response])[0];
+
+      if (!row) {
+        setRows([]);
+        setSelectedScheduleId(null);
+        setSessionRows([]);
+        setErrorMessage(`Không tìm thấy lịch học #${scheduleId}.`);
+        return;
+      }
+
+      setRows([row]);
+      setSelectedScheduleId(row.id);
+      setSectionIdInput(String(row.sectionId));
+      setSessionRows([]);
+      setSuccessMessage(`Đã tải chi tiết lịch học lặp lại #${scheduleId}.`);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -232,6 +328,7 @@ export const RecurringSchedulePanel = ({
       );
       setSessionRows(toSessionRows(response.rows));
       setSelectedScheduleId(scheduleId);
+      setScheduleIdInput(String(scheduleId));
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
@@ -313,6 +410,7 @@ export const RecurringSchedulePanel = ({
 
   const handleEdit = (row: RecurringScheduleRow) => {
     setEditingRowId(row.id);
+    setScheduleIdInput(String(row.id));
     setForm({
       sectionId: String(row.sectionId),
       classroomId: String(row.classroomId),
@@ -367,13 +465,19 @@ export const RecurringSchedulePanel = ({
       </div>
 
       <div className="space-y-4 px-4 py-4">
-        <div className="grid gap-3 md:grid-cols-[220px_160px_1fr]">
-          <input
+        <div className="grid gap-3 md:grid-cols-[220px_160px_220px_160px_1fr]">
+          <select
             className="h-10 rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
-            placeholder="Mã lớp học phần"
             value={sectionIdInput}
             onChange={(event) => setSectionIdInput(event.target.value)}
-          />
+          >
+            <option value="">Chọn lớp học phần</option>
+            {sectionOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label} (ID: {item.id})
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={() => {
@@ -383,6 +487,23 @@ export const RecurringSchedulePanel = ({
             className="h-10 rounded-[6px] bg-[#0d6ea6] px-4 text-sm font-semibold text-white transition hover:bg-[#085d90] disabled:opacity-60"
           >
             Tải lịch học
+          </button>
+          <input
+            className="h-10 rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
+            value={scheduleIdInput}
+            onChange={(event) => setScheduleIdInput(event.target.value)}
+            placeholder="Nhập schedule ID"
+            inputMode="numeric"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              void loadScheduleById();
+            }}
+            disabled={isLoading}
+            className="h-10 rounded-[6px] border border-[#9ec3dd] bg-white px-4 text-sm font-semibold text-[#165a83] transition hover:bg-[#edf6fd] disabled:opacity-60"
+          >
+            Tải theo ID
           </button>
           <div className="grid gap-3 sm:grid-cols-3">
             <article className="rounded-[10px] border border-[#c7dceb] bg-[#f8fcff] px-4 py-3">
@@ -441,7 +562,7 @@ export const RecurringSchedulePanel = ({
                     <tr key={row.id} className="border-b border-[#e0ebf4] text-[#3f6178]">
                       <td className="px-3 py-3">
                         <p className="font-semibold text-[#1f567b]">
-                          {row.sectionDisplayName || row.sectionCođể || row.sectionId}
+                          {row.sectionDisplayName || row.sectionCode || row.sectionId}
                         </p>
                         <p className="mt-1 text-xs text-[#6b8497]">ID: {row.id}</p>
                       </td>
@@ -519,28 +640,38 @@ export const RecurringSchedulePanel = ({
             <form className="space-y-3 px-4 py-4" onSubmit={handleSubmit}>
               <label className="block space-y-1">
                 <span className="text-sm font-semibold text-[#315972]">Mã lớp học phần</span>
-                <input
+                <select
                   className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
                   value={form.sectionId}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, sectionId: event.target.value }))
                   }
-                  inputMode="numeric"
-                  placeholder="1"
-                />
+                >
+                  <option value="">Chọn lớp học phần</option>
+                  {sectionOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label} (ID: {item.id})
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="block space-y-1">
                 <span className="text-sm font-semibold text-[#315972]">Mã phòng học</span>
-                <input
+                <select
                   className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
                   value={form.classroomId}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, classroomId: event.target.value }))
                   }
-                  inputMode="numeric"
-                  placeholder="1"
-                />
+                >
+                  <option value="">Chọn phòng học</option>
+                  {classroomOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label} (ID: {item.id})
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="block space-y-1">
@@ -667,5 +798,3 @@ export const RecurringSchedulePanel = ({
     </section>
   );
 };
-
-

@@ -4,8 +4,10 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useToastFeedback } from "@/hooks/use-toast-feedback";
 import {
   createDynamicByPath,
+  getCoursesByFaculty,
   deleteDynamicByPath,
   getDynamicListByPath,
+  getGradeComponentsByCourse,
   updateDynamicByPath,
 } from "@/lib/admin/service";
 import type { DynamicRow } from "@/lib/admin/types";
@@ -61,6 +63,13 @@ export const GradeComponentPanel = ({
   authorization,
 }: GradeComponentPanelProps) => {
   const [rows, setRows] = useState<GradeComponentRow[]>([]);
+  const [facultyOptions, setFacultyOptions] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
+  const [facultyFilter, setFacultyFilter] = useState("");
+  const [courseOptions, setCourseOptions] = useState<
+    Array<{ id: number; label: string }>
+  >([]);
   const [keyword, setKeyword] = useState("");
   const [courseFilter, setCourseFilter] = useState("");
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
@@ -84,17 +93,67 @@ export const GradeComponentPanel = ({
     try {
       setIsLoading(true);
       setErrorMessage("");
-      const response = await getDynamicListByPath(
-        "/api/v1/grade-components",
-        authorization,
-      );
-      setRows(toGradeComponentRows(response.rows));
+      const facultyId = Number(facultyFilter);
+      const hasFacultyFilter = Number.isInteger(facultyId) && facultyId > 0;
+      const courseId = Number(courseFilter);
+      const hasCourseFilter = Number.isInteger(courseId) && courseId > 0;
+
+      const [gradeComponentRows, courses, faculties] = await Promise.all([
+        hasCourseFilter
+          ? getGradeComponentsByCourse(courseId, authorization).then((dataRows) => ({
+              rows: dataRows,
+            }))
+          : getDynamicListByPath("/api/v1/grade-components", authorization),
+        hasFacultyFilter
+          ? getCoursesByFaculty(facultyId, authorization)
+          : getDynamicListByPath("/api/v1/courses", authorization),
+        getDynamicListByPath("/api/v1/faculties", authorization),
+      ]);
+
+      setRows(toGradeComponentRows(gradeComponentRows.rows));
+
+      const nextCourseOptions = courses.rows
+        .map((item) => {
+          const id = Number(item.id || 0);
+          if (!Number.isInteger(id) || id <= 0) {
+            return null;
+          }
+          const label =
+            (typeof item.courseName === "string" && item.courseName) ||
+            (typeof item.courseCode === "string" && item.courseCode) ||
+            String(id);
+          return { id, label };
+        })
+        .filter((item): item is { id: number; label: string } => item !== null);
+      setCourseOptions(nextCourseOptions);
+
+      if (
+        hasCourseFilter &&
+        !nextCourseOptions.some((option) => option.id === courseId)
+      ) {
+        setCourseFilter("");
+      }
+
+      const nextFacultyOptions = faculties.rows
+        .map((item) => {
+          const id = Number(item.id || 0);
+          if (!Number.isInteger(id) || id <= 0) {
+            return null;
+          }
+          const label =
+            (typeof item.facultyName === "string" && item.facultyName) ||
+            (typeof item.facultyCode === "string" && item.facultyCode) ||
+            String(id);
+          return { id, label };
+        })
+        .filter((item): item is { id: number; label: string } => item !== null);
+      setFacultyOptions(nextFacultyOptions);
     } catch (error) {
       setErrorMessage(toErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [authorization]);
+  }, [authorization, courseFilter, facultyFilter]);
 
   useEffect(() => {
     void loadRows();
@@ -286,19 +345,40 @@ export const GradeComponentPanel = ({
                   Tap trung vao ten thanh phan, môn học va trọng số để thao tac nhanh.
                 </p>
               </div>
-              <div className="grid gap-2 sm:grid-cols-[220px_140px]">
+              <div className="grid gap-2 sm:grid-cols-[220px_220px_220px]">
                 <input
                   className="h-10 rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
                   placeholder="Tim theo ten thanh phan"
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                 />
-                <input
+                <select
                   className="h-10 rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
-                  placeholder="Mã môn học"
+                  value={facultyFilter}
+                  onChange={(event) => {
+                    setFacultyFilter(event.target.value);
+                    setCourseFilter("");
+                  }}
+                >
+                  <option value="">Tat ca khoa</option>
+                  {facultyOptions.map((option) => (
+                    <option key={option.id} value={String(option.id)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-10 rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
                   value={courseFilter}
                   onChange={(event) => setCourseFilter(event.target.value)}
-                />
+                >
+                  <option value="">Tat ca môn học</option>
+                  {courseOptions.map((option) => (
+                    <option key={option.id} value={String(option.id)}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -401,15 +481,20 @@ export const GradeComponentPanel = ({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1">
                   <span className="text-sm font-semibold text-[#315972]">Mã môn học</span>
-                  <input
+                  <select
                     className="h-10 w-full rounded-[6px] border border-[#c8d3dd] px-3 text-sm outline-none focus:border-[#6aa8cf]"
                     value={form.courseId}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, courseId: event.target.value }))
                     }
-                    inputMode="numeric"
-                    placeholder="1"
-                  />
+                  >
+                    <option value="">Chọn môn học</option>
+                    {courseOptions.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.label} (ID: {course.id})
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
                 <label className="block space-y-1">
@@ -453,5 +538,3 @@ export const GradeComponentPanel = ({
     </section>
   );
 };
-
-

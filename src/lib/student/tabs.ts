@@ -21,9 +21,14 @@ export const studentFeatureTabs: StudentFeatureTab[] = [
     key: "course-registration",
     label: "Đăng ký môn học",
     description:
-      "Tra cứu lớp học phần và gửi nguyện vọng đăng ký học phần theo kỳ.",
+      "Tra cứu lớp học phần, lọc theo môn học/học kỳ, xem lịch học và gửi nguyện vọng đăng ký.",
     endpoints: [
       { method: "GET", path: "/api/v1/course-sections" },
+      { method: "GET", path: "/api/v1/course-sections/{id}" },
+      { method: "GET", path: "/api/v1/course-sections/course/{courseId}" },
+      { method: "GET", path: "/api/v1/course-sections/semester/{semesterId}" },
+      { method: "GET", path: "/api/v1/recurring-schedules/section/{sectionId}" },
+      { method: "GET", path: "/api/v1/recurring-schedules/{id}/sessions" },
       { method: "POST", path: "/api/v1/course-registrations" },
     ],
   },
@@ -37,8 +42,13 @@ export const studentFeatureTabs: StudentFeatureTab[] = [
   {
     key: "grades",
     label: "Xem điểm",
-    description: "Tra cứu bảng điểm của sinh viên.",
-    endpoints: [{ method: "GET", path: "/api/v1/students/{studentId}/grade-reports" }],
+    description:
+      "Tra cứu bảng điểm, xem chi tiết điểm thành phần theo cấu hình trọng số của môn học.",
+    endpoints: [
+      { method: "GET", path: "/api/v1/students/{studentId}/grade-reports" },
+      { method: "GET", path: "/api/v1/course-sections/{id}" },
+      { method: "GET", path: "/api/v1/courses/{courseId}/grade-components" },
+    ],
   },
   {
     key: "attendance",

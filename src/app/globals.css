@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #edf1f5;
+  --foreground: #1f3344;
+  --muted-foreground: #5e7488;
+  --input-foreground: #1a2b3a;
+  --placeholder-foreground: #6f8294;
 }
 
 @theme inline {
@@ -13,15 +16,20 @@
     "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+input,
+select,
+textarea {
+  color: var(--input-foreground);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder-foreground);
+  opacity: 1;
 }

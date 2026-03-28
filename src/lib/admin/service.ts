@@ -2,6 +2,17 @@ import { apiRequest } from "@/lib/api/client";
 import type { ApiResponse } from "@/lib/api/types";
 import type {
   AccountCreatePayload,
+  AttendanceBatchPayload,
+  AttendanceItem,
+  AttendanceUpdatePayload,
+  AdmissionBenchmarkBulkPayload,
+  AdmissionBenchmarkUpsertPayload,
+  AdmissionBlockUpsertPayload,
+  AdmissionBulkReviewPayload,
+  AdmissionOnboardingPayload,
+  AdmissionPeriodUpsertPayload,
+  AdmissionReviewPayload,
+  AdmissionSelectionOptions,
   AccountListItem,
   AccountResetPasswordPayload,
   AccountSearchFilter,
@@ -12,6 +23,8 @@ import type {
   BlockListItem,
   CourseSectionListItem,
   DynamicRow,
+  GradeReportItem,
+  GradeReportUpsertPayload,
   PagedRows,
   PeriodListItem,
   RoleListItem,
@@ -399,10 +412,24 @@ export const getMajors = async (
   return getSimpleDynamicList("/api/v1/majors", authorization);
 };
 
+export const getMajorsByFaculty = async (
+  facultyId: number,
+  authorization: string,
+): Promise<PagedRows<DynamicRow>> => {
+  return getSimpleDynamicList(`/api/v1/majors/faculty/${facultyId}`, authorization);
+};
+
 export const getSpecializations = async (
   authorization: string,
 ): Promise<PagedRows<DynamicRow>> => {
   return getSimpleDynamicList("/api/v1/specializations", authorization);
+};
+
+export const getSpecializationsByMajor = async (
+  majorId: number,
+  authorization: string,
+): Promise<PagedRows<DynamicRow>> => {
+  return getSimpleDynamicList(`/api/v1/specializations/major/${majorId}`, authorization);
 };
 
 export const getCohorts = async (
@@ -415,6 +442,13 @@ export const getCourses = async (
   authorization: string,
 ): Promise<PagedRows<DynamicRow>> => {
   return getSimpleDynamicList("/api/v1/courses", authorization);
+};
+
+export const getCoursesByFaculty = async (
+  facultyId: number,
+  authorization: string,
+): Promise<PagedRows<DynamicRow>> => {
+  return getSimpleDynamicList(`/api/v1/courses/faculty/${facultyId}`, authorization);
 };
 
 export const getClassrooms = async (
@@ -440,6 +474,17 @@ export const getSectionGradeReports = async (
   return toArray<DynamicRow>(data);
 };
 
+export const getStudentGradeReports = async (
+  studentId: number,
+  authorization: string,
+): Promise<DynamicRow[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/students/${studentId}/grade-reports`,
+    authorization,
+  );
+  return toArray<DynamicRow>(data);
+};
+
 export const getStudentAttendances = async (
   studentId: number,
   authorization: string,
@@ -451,11 +496,67 @@ export const getStudentAttendances = async (
   return toArray<DynamicRow>(data);
 };
 
+export const getGuardianStudentAttendances = async (
+  guardianId: number,
+  studentId: number,
+  authorization: string,
+): Promise<AttendanceItem[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/guardians/${guardianId}/students/${studentId}/attendances`,
+    authorization,
+  );
+  return toArray<AttendanceItem>(data);
+};
+
 export const getCourseSections = async (
   authorization: string,
 ): Promise<CourseSectionListItem[]> => {
   const data = await getRequest<unknown>("/api/v1/course-sections", authorization);
   return toArray<CourseSectionListItem>(data);
+};
+
+export const getCourseSectionsByCourse = async (
+  courseId: number,
+  authorization: string,
+): Promise<CourseSectionListItem[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/course-sections/course/${courseId}`,
+    authorization,
+  );
+  return toArray<CourseSectionListItem>(data);
+};
+
+export const getCourseSectionsBySemester = async (
+  semesterId: number,
+  authorization: string,
+): Promise<CourseSectionListItem[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/course-sections/semester/${semesterId}`,
+    authorization,
+  );
+  return toArray<CourseSectionListItem>(data);
+};
+
+export const getGradeComponentsByCourse = async (
+  courseId: number,
+  authorization: string,
+): Promise<DynamicRow[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/courses/${courseId}/grade-components`,
+    authorization,
+  );
+  return toArray<DynamicRow>(data);
+};
+
+export const getRecurringScheduleById = async (
+  scheduleId: number,
+  authorization: string,
+): Promise<DynamicRow> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/recurring-schedules/${scheduleId}`,
+    authorization,
+  );
+  return toDynamicRow(data);
 };
 
 export const getAdmissionPeriods = async (
@@ -470,6 +571,17 @@ export const getAdmissionPeriods = async (
   );
 
   return toPagedRows<PeriodListItem>(data);
+};
+
+export const getAdmissionPeriodById = async (
+  periodId: number,
+  authorization: string,
+): Promise<PeriodListItem> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/admin/admissions/config/periods/${periodId}`,
+    authorization,
+  );
+  return (data || {}) as PeriodListItem;
 };
 
 export const getAdmissionBlocks = async (
@@ -508,4 +620,322 @@ export const getAdmissionApplications = async (
   );
 
   return toPagedRows<ApplicationListItem>(data);
+};
+
+export const getAdmissionApplicationById = async (
+  applicationId: number,
+  authorization: string,
+): Promise<ApplicationListItem> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/admin/admissions/applications/${applicationId}`,
+    authorization,
+  );
+  return (data || {}) as ApplicationListItem;
+};
+
+export const reviewAdmissionApplication = async (
+  applicationId: number,
+  payload: AdmissionReviewPayload,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/applications/${applicationId}/review`,
+    {
+      method: "PATCH",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+};
+
+export const reviewAdmissionApplicationsBulk = async (
+  payload: AdmissionBulkReviewPayload,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    "/api/v1/admin/admissions/applications/bulk-review",
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+};
+
+export const autoScreenAdmissionApplications = async (
+  periodId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/applications/auto-screen/${periodId}`,
+    {
+      method: "POST",
+      accessToken: authorization,
+    },
+  );
+};
+
+export const processAdmissionOnboarding = async (
+  payload: AdmissionOnboardingPayload,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    "/api/v1/admin/admissions/applications/onboard",
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+};
+
+export const getAdmissionFormOptions = async (
+  authorization: string,
+): Promise<AdmissionSelectionOptions> => {
+  const data = await getRequest<unknown>(
+    "/api/v1/admin/admissions/config/form-options",
+    authorization,
+  );
+
+  const payload = (isObject(data) ? data : {}) as {
+    majors?: unknown;
+    blocks?: unknown;
+    periods?: unknown;
+  };
+
+  return {
+    majors: toArray(payload.majors),
+    blocks: toArray(payload.blocks),
+    periods: toArray(payload.periods),
+  };
+};
+
+export const createAdmissionPeriod = async (
+  payload: AdmissionPeriodUpsertPayload,
+  authorization: string,
+): Promise<PeriodListItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    "/api/v1/admin/admissions/config/periods",
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as PeriodListItem;
+};
+
+export const updateAdmissionPeriod = async (
+  periodId: number,
+  payload: AdmissionPeriodUpsertPayload,
+  authorization: string,
+): Promise<PeriodListItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/periods/${periodId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as PeriodListItem;
+};
+
+export const deleteAdmissionPeriod = async (
+  periodId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/periods/${periodId}`,
+    {
+      method: "DELETE",
+      accessToken: authorization,
+    },
+  );
+};
+
+export const createAdmissionBlock = async (
+  payload: AdmissionBlockUpsertPayload,
+  authorization: string,
+): Promise<BlockListItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    "/api/v1/admin/admissions/config/blocks",
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as BlockListItem;
+};
+
+export const updateAdmissionBlock = async (
+  blockId: number,
+  payload: AdmissionBlockUpsertPayload,
+  authorization: string,
+): Promise<BlockListItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/blocks/${blockId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as BlockListItem;
+};
+
+export const deleteAdmissionBlock = async (
+  blockId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/blocks/${blockId}`,
+    {
+      method: "DELETE",
+      accessToken: authorization,
+    },
+  );
+};
+
+export const updateAdmissionBenchmark = async (
+  benchmarkId: number,
+  payload: AdmissionBenchmarkUpsertPayload,
+  authorization: string,
+): Promise<BenchmarkListItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/benchmarks/${benchmarkId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as BenchmarkListItem;
+};
+
+export const deleteAdmissionBenchmark = async (
+  benchmarkId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/admin/admissions/config/benchmarks/${benchmarkId}`,
+    {
+      method: "DELETE",
+      accessToken: authorization,
+    },
+  );
+};
+
+export const saveAdmissionBenchmarksBulk = async (
+  payload: AdmissionBenchmarkBulkPayload,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(
+    "/api/v1/admin/admissions/config/benchmarks/bulk",
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+};
+
+export const createGradeReport = async (
+  payload: GradeReportUpsertPayload,
+  authorization: string,
+): Promise<GradeReportItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>("/api/v1/grade-reports", {
+    method: "POST",
+    body: payload,
+    accessToken: authorization,
+  });
+  return (response.data || {}) as GradeReportItem;
+};
+
+export const getGradeReportById = async (
+  gradeReportId: number,
+  authorization: string,
+): Promise<GradeReportItem> => {
+  const data = await getRequest<unknown>(`/api/v1/grade-reports/${gradeReportId}`, authorization);
+  return (data || {}) as GradeReportItem;
+};
+
+export const updateGradeReport = async (
+  gradeReportId: number,
+  payload: GradeReportUpsertPayload,
+  authorization: string,
+): Promise<GradeReportItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/grade-reports/${gradeReportId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as GradeReportItem;
+};
+
+export const deleteGradeReport = async (
+  gradeReportId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(`/api/v1/grade-reports/${gradeReportId}`, {
+    method: "DELETE",
+    accessToken: authorization,
+  });
+};
+
+export const getAttendancesBySession = async (
+  sessionId: number,
+  authorization: string,
+): Promise<AttendanceItem[]> => {
+  const data = await getRequest<unknown>(
+    `/api/v1/class-sessions/${sessionId}/attendances`,
+    authorization,
+  );
+  return toArray<AttendanceItem>(data);
+};
+
+export const createAttendancesBatch = async (
+  sessionId: number,
+  payload: AttendanceBatchPayload,
+  authorization: string,
+): Promise<AttendanceItem[]> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/class-sessions/${sessionId}/attendances/batch`,
+    {
+      method: "POST",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return toArray<AttendanceItem>(response.data);
+};
+
+export const updateAttendance = async (
+  attendanceId: number,
+  payload: AttendanceUpdatePayload,
+  authorization: string,
+): Promise<AttendanceItem> => {
+  const response = await apiRequest<ApiResponse<unknown>>(
+    `/api/v1/attendances/${attendanceId}`,
+    {
+      method: "PUT",
+      body: payload,
+      accessToken: authorization,
+    },
+  );
+  return (response.data || {}) as AttendanceItem;
+};
+
+export const deleteAttendance = async (
+  attendanceId: number,
+  authorization: string,
+): Promise<void> => {
+  await apiRequest<ApiResponse<unknown>>(`/api/v1/attendances/${attendanceId}`, {
+    method: "DELETE",
+    accessToken: authorization,
+  });
 };

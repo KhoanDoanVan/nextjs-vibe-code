@@ -43,6 +43,14 @@ export interface ChangePasswordRequest {
   confirmPassword: string;
 }
 
+export interface GradeDetailResponse {
+  id?: number;
+  componentId?: number;
+  componentName?: string;
+  weightPercentage?: number;
+  score?: number;
+}
+
 export interface GradeReportResponse {
   id: number;
   registrationId?: number;
@@ -55,6 +63,14 @@ export interface GradeReportResponse {
   letterGrade?: string;
   status?: "DRAFT" | "PUBLISHED" | "LOCKED";
   createdAt?: string;
+  gradeDetails?: GradeDetailResponse[];
+}
+
+export interface GradeComponentResponse {
+  id: number;
+  componentName?: string;
+  weightPercentage?: number;
+  courseId?: number;
 }
 
 export interface AttendanceResponse {
@@ -84,6 +100,36 @@ export interface CourseSectionResponse {
   maxCapacity?: number;
   status?: "DRAFT" | "OPEN" | "ONGOING" | "FINISHED" | "CANCELLED";
   createdAt?: string;
+}
+
+export interface RecurringScheduleResponse {
+  id: number;
+  sectionId?: number;
+  sectionCode?: string;
+  sectionDisplayName?: string;
+  classroomId?: number;
+  classroomName?: string;
+  dayOfWeek?: number;
+  dayOfWeekName?: string;
+  startPeriod?: number;
+  startPeriodTime?: string;
+  endPeriod?: number;
+  endPeriodTime?: string;
+  createdAt?: string;
+}
+
+export interface ClassSessionResponse {
+  id: number;
+  sectionId?: number;
+  sectionCode?: string;
+  classroomId?: number;
+  classroomName?: string;
+  recurringScheduleId?: number;
+  sessionDate?: string;
+  startPeriod?: number;
+  endPeriod?: number;
+  lessonContent?: string;
+  status?: "NORMAL" | "CANCELLED" | "RESCHEDULED";
 }
 
 export interface CourseRegistrationRequest {

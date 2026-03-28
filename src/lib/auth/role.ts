@@ -10,3 +10,7 @@ export const normalizeRole = (role?: string | null): string => {
 export const isAdminRole = (role?: string | null): boolean => {
   return normalizeRole(role) === "ADMIN";
 };
+
+export const isLecturerRole = (role?: string | null): boolean => {
+  return normalizeRole(role) === "LECTURER";
+};

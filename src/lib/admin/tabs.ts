@@ -11,7 +11,14 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     key: "accounts",
     label: "Quản lý tài khoản",
     description: "Danh sách tài khoản, vai trò và trạng thái.",
-    endpoints: [{ method: "GET", path: "/api/v1/accounts" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/accounts" },
+      { method: "GET", path: "/api/v1/accounts/{id}" },
+      { method: "POST", path: "/api/v1/accounts" },
+      { method: "PUT", path: "/api/v1/accounts/{id}" },
+      { method: "PATCH", path: "/api/v1/accounts/{id}/status" },
+      { method: "PATCH", path: "/api/v1/accounts/{id}/reset-password" },
+    ],
   },
   {
     key: "roles",
@@ -19,6 +26,10 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     description: "Quản lý vai trò và tập quyền hệ thống.",
     endpoints: [
       { method: "GET", path: "/api/v1/roles" },
+      { method: "GET", path: "/api/v1/roles/{id}" },
+      { method: "POST", path: "/api/v1/roles" },
+      { method: "PUT", path: "/api/v1/roles/{id}" },
+      { method: "DELETE", path: "/api/v1/roles/{id}" },
       { method: "GET", path: "/api/v1/roles/permissions" },
     ],
   },
@@ -32,13 +43,19 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     key: "majors",
     label: "Quản lý ngành",
     description: "Quản lý danh sách ngành đào tạo.",
-    endpoints: [{ method: "GET", path: "/api/v1/majors" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/majors" },
+      { method: "GET", path: "/api/v1/majors/faculty/{facultyId}" },
+    ],
   },
   {
     key: "specializations",
     label: "Quản lý chuyên ngành",
     description: "Quản lý danh sách chuyên ngành theo từng ngành.",
-    endpoints: [{ method: "GET", path: "/api/v1/specializations" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/specializations" },
+      { method: "GET", path: "/api/v1/specializations/major/{majorId}" },
+    ],
   },
   {
     key: "cohorts",
@@ -50,7 +67,10 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     key: "courses",
     label: "Quản lý môn học",
     description: "Quản lý danh sách môn học trong chương trình đào tạo.",
-    endpoints: [{ method: "GET", path: "/api/v1/courses" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/courses" },
+      { method: "GET", path: "/api/v1/courses/faculty/{facultyId}" },
+    ],
   },
   {
     key: "grade-components",
@@ -59,6 +79,7 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     endpoints: [
       { method: "GET", path: "/api/v1/grade-components" },
       { method: "POST", path: "/api/v1/grade-components" },
+      { method: "GET", path: "/api/v1/courses/{courseId}/grade-components" },
     ],
   },
   {
@@ -77,7 +98,10 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     key: "students",
     label: "Quản lý sinh viên",
     description: "Theo dõi danh sách sinh viên trong hệ thống.",
-    endpoints: [{ method: "GET", path: "/api/v1/students" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/students" },
+      { method: "PATCH", path: "/api/v1/students/{id}/status" },
+    ],
   },
   {
     key: "lecturers",
@@ -97,6 +121,8 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     description: "Quản lý lớp học phần và phân công giảng viên theo lớp.",
     endpoints: [
       { method: "GET", path: "/api/v1/course-sections" },
+      { method: "GET", path: "/api/v1/course-sections/course/{courseId}" },
+      { method: "GET", path: "/api/v1/course-sections/semester/{semesterId}" },
       { method: "PUT", path: "/api/v1/course-sections/{id}" },
       { method: "PATCH", path: "/api/v1/course-sections/{id}/status" },
     ],
@@ -108,19 +134,37 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     endpoints: [
       { method: "POST", path: "/api/v1/recurring-schedules" },
       { method: "GET", path: "/api/v1/recurring-schedules/section/{sectionId}" },
+      { method: "GET", path: "/api/v1/recurring-schedules/{id}" },
     ],
   },
   {
     key: "grade-management",
     label: "Quản lý điểm",
     description: "Xem bảng điểm theo từng lớp học phần (nhập section ID).",
-    endpoints: [{ method: "GET", path: "/api/v1/course-sections/{sectionId}/grade-reports" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/course-sections/{sectionId}/grade-reports" },
+      { method: "GET", path: "/api/v1/students/{studentId}/grade-reports" },
+      { method: "POST", path: "/api/v1/grade-reports" },
+      { method: "GET", path: "/api/v1/grade-reports/{id}" },
+      { method: "PUT", path: "/api/v1/grade-reports/{id}" },
+      { method: "DELETE", path: "/api/v1/grade-reports/{id}" },
+    ],
   },
   {
     key: "attendance-management",
     label: "Quản lý điểm danh",
     description: "Xem điểm danh theo sinh viên (nhập student ID).",
-    endpoints: [{ method: "GET", path: "/api/v1/students/{studentId}/attendances" }],
+    endpoints: [
+      { method: "GET", path: "/api/v1/students/{studentId}/attendances" },
+      {
+        method: "GET",
+        path: "/api/v1/guardians/{guardianId}/students/{studentId}/attendances",
+      },
+      { method: "GET", path: "/api/v1/class-sessions/{sessionId}/attendances" },
+      { method: "POST", path: "/api/v1/class-sessions/{sessionId}/attendances/batch" },
+      { method: "PUT", path: "/api/v1/attendances/{id}" },
+      { method: "DELETE", path: "/api/v1/attendances/{id}" },
+    ],
   },
   {
     key: "admissions",
@@ -128,9 +172,25 @@ export const adminFeatureTabs: AdminFeatureTab[] = [
     description: "Điều hành kỳ tuyển sinh, điểm chuẩn và hồ sơ dự tuyển.",
     endpoints: [
       { method: "GET", path: "/api/v1/admin/admissions/config/periods" },
+      { method: "GET", path: "/api/v1/admin/admissions/config/periods/{id}" },
+      { method: "POST", path: "/api/v1/admin/admissions/config/periods" },
+      { method: "PUT", path: "/api/v1/admin/admissions/config/periods/{id}" },
+      { method: "DELETE", path: "/api/v1/admin/admissions/config/periods/{id}" },
       { method: "GET", path: "/api/v1/admin/admissions/config/blocks" },
+      { method: "POST", path: "/api/v1/admin/admissions/config/blocks" },
+      { method: "PUT", path: "/api/v1/admin/admissions/config/blocks/{id}" },
+      { method: "DELETE", path: "/api/v1/admin/admissions/config/blocks/{id}" },
       { method: "GET", path: "/api/v1/admin/admissions/config/benchmarks" },
+      { method: "POST", path: "/api/v1/admin/admissions/config/benchmarks/bulk" },
+      { method: "PUT", path: "/api/v1/admin/admissions/config/benchmarks/{id}" },
+      { method: "DELETE", path: "/api/v1/admin/admissions/config/benchmarks/{id}" },
+      { method: "GET", path: "/api/v1/admin/admissions/config/form-options" },
       { method: "GET", path: "/api/v1/admin/admissions/applications" },
+      { method: "GET", path: "/api/v1/admin/admissions/applications/{id}" },
+      { method: "PATCH", path: "/api/v1/admin/admissions/applications/{id}/review" },
+      { method: "POST", path: "/api/v1/admin/admissions/applications/bulk-review" },
+      { method: "POST", path: "/api/v1/admin/admissions/applications/auto-screen/{periodId}" },
+      { method: "POST", path: "/api/v1/admin/admissions/applications/onboard" },
     ],
   },
 ];
